@@ -1,9 +1,13 @@
+import sys
+sys.path.remove("/opt/ros/kinetic/lib/python2.7/dist-packages")
+
 from stable_baselines.common.vec_env import SubprocVecEnv
+from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines import PPO2
 from millify import millify
 import numpy as np
 
-import sys
+
 from importlib import import_module
 import argparse
 import os
@@ -47,7 +51,8 @@ class AslaugTrainer:
         # Inizialize gyms as vector environments
         aslaug_mod = import_module("envs." + self.model_name)
         def create_gym(): return aslaug_mod.AslaugEnv(params=self.env_params)
-        env = SubprocVecEnv([create_gym for i in range(self.args['n_cpu'])])
+        #env = SubprocVecEnv([create_gym for i in range(self.args['n_cpu'])])
+        env = DummyVecEnv([create_gym for i in range(self.args['n_cpu'])])
         g_env = create_gym()
 
         # Obtain observation slicing for neural network adaption
