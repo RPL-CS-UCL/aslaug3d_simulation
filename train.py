@@ -235,7 +235,7 @@ def main():
 
         if n_steps / 5000.0 >= info_idx:
             info_idx += 1
-            print("Current frame_rate: {} fps.".format(_locals["fps"]))
+            #print("Current frame_rate: {} fps.".format(_locals["fps"]))
             logger.log_scalar('metrics/success_rate', np.average(model.env.env_method("get_success_rate")), n_steps)
 
             # os.system("tmux set -g status-right \"Steps {} / {} | ADR {} | FPS {}\"".format(n_cp_simple, millify(float(steps), precision=6), spwnrng, _locals["fps"]))
