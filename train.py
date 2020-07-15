@@ -40,7 +40,7 @@ def main():
                         default="stable_baselines.common.policies.MlpPolicy")
     parser.add_argument("-cp", "--check_point", help="# steps in between \
                         checkpoints",
-                        default=500e3)
+                        default=50e3)
     parser.add_argument("-f", "--folder", help="Name the folder",
                         default="None")
     parser.add_argument("-de", "--default_env", help="Use default gym env.",
