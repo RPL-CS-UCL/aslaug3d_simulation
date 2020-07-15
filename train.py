@@ -1,9 +1,13 @@
+
+import sys
+if ("/opt/ros/kinetic/lib/python2.7/dist-packages" in sys.path):
+  sys.path.remove("/opt/ros/kinetic/lib/python2.7/dist-packages")
+
 from stable_baselines.common.vec_env import SubprocVecEnv
 from stable_baselines import PPO2
 from millify import millify
 import numpy as np
 
-import sys
 from importlib import import_module
 import argparse
 import os
