@@ -251,7 +251,7 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
         if self.done_info is not None:
             print ("Ep. {:}, R: {:}, ".format(self.episode_counter,
                 self.cum_rew) +" "+ self.done_info["done_reason"])
-
+            print (self.step_no)
         if self.done_info is not None:
             success = self.done_info["done_reason"] == "success"
             self.env_score.add(success)
