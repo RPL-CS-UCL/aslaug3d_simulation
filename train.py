@@ -40,7 +40,7 @@ def main():
                         default="stable_baselines.common.policies.MlpPolicy")
     parser.add_argument("-cp", "--check_point", help="# steps in between \
                         checkpoints",
-                        default=50e3)
+                        default=10e3)
     parser.add_argument("-f", "--folder", help="Name the folder",
                         default="None")
     parser.add_argument("-de", "--default_env", help="Use default gym env.",
@@ -218,7 +218,7 @@ def main():
             data = {"version": version, "model_path": dir_path + cp_name}
             with open('latest.json', 'w') as outfile:
                 json.dump(data, outfile)
-            print("Stored model at episode {}.".format(n_cp_simple))
+            print("\nStored model at episode {}.\n".format(n_cp_simple))
 
         if cl is not None and n_steps / 25000.0 >= cl_idx:
             cl_idx += 1

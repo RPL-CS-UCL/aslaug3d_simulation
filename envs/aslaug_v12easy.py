@@ -248,9 +248,10 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
     def reset(self, init_state=None, init_setpoint_state=None,
               init_obstacle_grid=None, init_obstacle_locations=None):
 
-        #if self.done_info is not None:
-        #    print ("Ep. {:}, R: {:}, ".format(self.episode_counter,
-        #        self.cum_rew) +" "+ self.done_info["done_reason"])
+        if self.done_info is not None:
+            print ("Ep. {:}, R: {:}, ".format(self.episode_counter,
+                self.cum_rew) +" "+ self.done_info["done_reason"], 
+            end="")
         if self.done_info is not None:
             success = self.done_info["done_reason"] == "success"
             self.env_score.add(success)
