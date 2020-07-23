@@ -349,5 +349,9 @@ class AslaugTrainer:
                     self.counter['n_steps'])
 
 
-trainer = AslaugTrainer()
-trainer.train()
+def main():
+    trainer = AslaugTrainer()
+    trainer.train()
+    
+if __name__ == '__main__':
+    main()
