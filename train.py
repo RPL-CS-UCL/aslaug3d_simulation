@@ -1,5 +1,7 @@
 import sys
-sys.path.remove("/opt/ros/kinetic/lib/python2.7/dist-packages")
+rem_path = "/opt/ros/kinetic/lib/python2.7/dist-packages"
+if rem_path in sys.path:
+    sys.path.remove("/opt/ros/kinetic/lib/python2.7/dist-packages")
 
 from stable_baselines.common.vec_env import SubprocVecEnv
 from stable_baselines.common.vec_env import DummyVecEnv
