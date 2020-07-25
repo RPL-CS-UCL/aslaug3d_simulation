@@ -73,8 +73,7 @@ class AslaugTrainer:
                          **self.learning_params)
         else:
             pfn, pep = self.args['pt'].split(":")
-            model_path = "data/saved_models/{}/aslaug_{}_{}.pkl\
-                          ".format(pfn, self.args['version'], pep)
+            model_path = "data/saved_models/{}/aslaug_{}_{}.pkl".format(pfn, self.args['version'], pep)
             tb_log_path = "data/tb_logs/{}".format(self.folder_name)
             model = PPO2.load(model_path, env=env, verbose=0,
                               tensorboard_log=tb_log_path,
