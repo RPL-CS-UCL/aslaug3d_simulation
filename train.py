@@ -39,7 +39,7 @@ class AslaugTrainer:
         self.cl_list = self.prepare_curriculum_learning(self.args['cl'])
 
         # Load parameters
-        with open("params.yaml") as f:
+        with open(pre_path+"params.yaml") as f:
             params_all = yaml.load(f)
         self.learning_params = params_all["learning_params"]
         self.env_params = params_all["environment_params"]
