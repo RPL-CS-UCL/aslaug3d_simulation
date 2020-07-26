@@ -174,7 +174,7 @@ class AslaugTrainer:
                 exit()
 
         # Copy model to directory
-        shutil.copy("envs/{}.py".format(self.model_name),
+        shutil.copy(pre_path+"envs/{}.py".format(self.model_name),
                     self.dir_path + self.model_name + ".py")
 
         # Save command to file for reference
@@ -218,7 +218,7 @@ class AslaugTrainer:
         self.counter['n_steps'] += self.model.n_batch
         if self.counter['logger'] is None:
             ppo_id = 1
-            ppo_path = 'data/tb_logs/{}/PPO2_{}'.format(self.folder_name,
+            ppo_path = pre_path+'data/tb_logs/{}/PPO2_{}'.format(self.folder_name,
                                                         ppo_id+1)
             while os.path.exists(ppo_path):
                 ppo_id += 1
