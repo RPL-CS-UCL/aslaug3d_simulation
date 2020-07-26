@@ -17,6 +17,9 @@ import shutil
 import yaml
 from util.tb_logging import Logger
 
+#pre_path = ""
+pre_path = "$HOME/projects/mppl_rl/aslaug3d_simulation/"
+            
 
 class AslaugTrainer:
     def __init__(self):
@@ -61,20 +64,18 @@ class AslaugTrainer:
         obs_slicing = g_env.obs_slicing if hasattr(g_env,
                                                    "obs_slicing") else None
         lidar_calib = np.array(g_env.get_lidar_calibration())
-        np.save("data/saved_models/{}/\
-                lidar_calib.npy".format(self.folder_name), lidar_calib)
+        np.save(pre_path+"data/saved_models/{}/lidar_calib.npy".format(self.folder_name), lidar_calib)
 
         # Prepare model, either new or proceeding training (pt)
         if self.args['pt'] is None:
             model = PPO2(self.policy, env, verbose=0,
-                         tensorboard_log="data/tb_logs/\
-                                          {}".format(self.folder_name),
+                         tensorboard_log=pre_path+"data/tb_logs/{}".format(self.folder_name),
                          policy_kwargs={"obs_slicing": obs_slicing},
                          **self.learning_params)
         else:
             pfn, pep = self.args['pt'].split(":")
-            model_path = "data/saved_models/{}/aslaug_{}_{}.pkl".format(pfn, self.args['version'], pep)
-            tb_log_path = "data/tb_logs/{}".format(self.folder_name)
+            model_path = pre_path+"data/saved_models/{}/aslaug_{}_{}.pkl".format(pfn, self.args['version'], pep)
+            tb_log_path = pre_path+"data/tb_logs/{}".format(self.folder_name)
             model = PPO2.load(model_path, env=env, verbose=0,
                               tensorboard_log=tb_log_path,
                               policy_kwargs={"obs_slicing": obs_slicing},
@@ -146,7 +147,7 @@ class AslaugTrainer:
             self.folder_name = self.args['folder_name']
 
         # Define directory to save files to
-        self.dir_path = "data/saved_models/{}/".format(self.folder_name)
+        self.dir_path = pre_path+"data/saved_models/{}/".format(self.folder_name)
         # self.prepare_directory()
 
     def prepare_directory(self):
@@ -166,7 +167,7 @@ class AslaugTrainer:
                 resp = input("Enter new folder name for \
                              {}: ".format(self.folder_name))
                 shutil.move(self.dir_path,
-                            "data/saved_models/{}/".format(resp))
+                            pre_path+"data/saved_models/{}/".format(resp))
                 os.mkdir(self.dir_path)
             else:
                 print("Can't understand your expression.")
@@ -182,13 +183,12 @@ class AslaugTrainer:
         text_file.close()
 
         # Save learning params to file
-        params_file = "data/saved_models/{}/\
-                       params.yaml".format(self.folder_name)
+        params_file = pre_path+"data/saved_models/{}/params.yaml".format(self.folder_name)
         shutil.copy("params.yaml", params_file)
 
         # Copy policy to models folder
         shutil.copy(self.policy_mod.__file__,
-                    "data/saved_models/{}/{}.py".format(self.folder_name,
+                    pre_path+"data/saved_models/{}/{}.py".format(self.folder_name,
                                                         self.policy_name))
 
     def prepare_curriculum_learning(self, cl):
@@ -222,9 +222,9 @@ class AslaugTrainer:
                                                         ppo_id+1)
             while os.path.exists(ppo_path):
                 ppo_id += 1
-                ppo_path = 'data/tb_logs/{}/PPO2_{}'.format(self.folder_name,
+                ppo_path = pre_path+'data/tb_logs/{}/PPO2_{}'.format(self.folder_name,
                                                             ppo_id+1)
-            ppo_path = 'data/tb_logs/{}/PPO2_{}/addons'.format(
+            ppo_path = pre_path+'data/tb_logs/{}/PPO2_{}/addons'.format(
                 self.folder_name, ppo_id)
             self.counter['logger'] = Logger(ppo_path)
         if (self.counter['n_steps'] / float(self.args['n_cp'])
