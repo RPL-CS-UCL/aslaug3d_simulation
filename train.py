@@ -184,7 +184,7 @@ class AslaugTrainer:
 
         # Save learning params to file
         params_file = pre_path+"data/saved_models/{}/params.yaml".format(self.folder_name)
-        shutil.copy("params.yaml", params_file)
+        shutil.copy(pre_path+"params.yaml", params_file)
 
         # Copy policy to models folder
         shutil.copy(self.policy_mod.__file__,
