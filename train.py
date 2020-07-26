@@ -18,7 +18,7 @@ import yaml
 from util.tb_logging import Logger
 
 #pre_path = ""
-pre_path = "$HOME/projects/mppl_rl/aslaug3d_simulation/"
+pre_path = "/home/ucabds6/projects/mppl_rl/aslaug3d_simulation/"
             
 
 class AslaugTrainer:
