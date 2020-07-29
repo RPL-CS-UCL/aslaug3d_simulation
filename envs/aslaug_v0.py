@@ -5,7 +5,8 @@ import random
 from . import aslaug_base
 import cv2
 from scipy.signal import convolve2d
-
+import logging
+logging.basicConfig(level=logging.INFO)
 
 # Aslaug environment with automatic domain randomization, sensor noise,
 # harmonic potential field path, fast HPT, adapted maximum velocity of base
@@ -249,7 +250,7 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
               init_obstacle_grid=None, init_obstacle_locations=None):
 
         if self.done_info is not None:
-            print ("Ep. {:}, R: {:}, ".format(self.episode_counter,
+            logging.info ("Ep. {:}, R: {:}, ".format(self.episode_counter,
                 self.cum_rew) +" "+ self.done_info["done_reason"])
             
         if self.done_info is not None:

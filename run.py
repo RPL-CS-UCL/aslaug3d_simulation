@@ -1,3 +1,8 @@
+import sys
+rem_path = "/opt/ros/kinetic/lib/python2.7/dist-packages"
+if rem_path in sys.path:
+    sys.path.remove("/opt/ros/kinetic/lib/python2.7/dist-packages")
+
 from stable_baselines import PPO2
 import gym
 
