@@ -77,7 +77,7 @@ class AslaugTrainer:
         #learning_starts=100, 
         # Prepare model, either new or proceeding training (pt)
         if self.args['pt'] is None:
-            model = SAC(MlpPolicy, env, verbose=0,
+            model = SAC(MlpPolicy, env, verbose=1,
                          tensorboard_log=pre_path+"data/tb_logs/{}".format(self.folder_name),
                          policy_kwargs=policy_params,
                          **SAC_params)
@@ -226,21 +226,20 @@ class AslaugTrainer:
     # Please excuse the horrible formatting
     def callback(self, _locals, _globals):
 
-        return
-        
         n_cp_simple = 0
-        self.counter['n_steps'] += self.model.n_batch
+        self.counter['n_steps'] += 1
         if self.counter['logger'] is None:
-            ppo_id = 1
-            ppo_path = pre_path+'data/tb_logs/{}/PPO2_{}'.format(self.folder_name,
-                                                        ppo_id+1)
-            while os.path.exists(ppo_path):
-                ppo_id += 1
-                ppo_path = pre_path+'data/tb_logs/{}/PPO2_{}'.format(self.folder_name,
-                                                            ppo_id+1)
-            ppo_path = pre_path+'data/tb_logs/{}/PPO2_{}/addons'.format(
-                self.folder_name, ppo_id)
-            self.counter['logger'] = Logger(ppo_path)
+            sac_id = 1
+            sac_path = pre_path+'data/tb_logs/{}/SAC_{}'.format(self.folder_name,
+                                                        sac_id+1)
+            while os.path.exists(sac_path):
+                sac_id += 1
+                sac_path = pre_path+'data/tb_logs/{}/SAC_{}'.format(self.folder_name,
+                                                            sac_id+1)
+            sac_path = pre_path+'data/tb_logs/{}/SAC_{}/addons'.format(
+                self.folder_name, sac_id)
+            self.counter['logger'] = Logger(sac_path)
+        
         if (self.counter['n_steps'] / float(self.args['n_cp'])
                 >= self.counter['model_idx']):
             n_cp_simple = millify(
@@ -256,14 +255,16 @@ class AslaugTrainer:
                 yaml.dump(data, outfile)
             print("Stored model at episode {}.".format(n_cp_simple))
 
+
         if (self.cl_list is not None and self.counter['n_steps'] / 25000.0
                 >= self.counter['cl_idx']):
             self.counter['cl_idx'] += 1
             self.perform_CL()
 
+        
+        return
         if self.counter['n_steps'] / 5000.0 >= self.counter['info_idx']:
             self.counter['info_idx'] += 1
-            print("Current frame_rate: {} fps.".format(_locals["fps"]))
             msr_avg = np.average(
               self.model.env.env_method("get_success_rate"))
             self.counter['logger'].log_scalar('metrics/success_rate', msr_avg,
