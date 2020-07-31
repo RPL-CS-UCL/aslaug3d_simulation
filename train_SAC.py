@@ -40,7 +40,7 @@ class AslaugTrainer:
         self.cl_list = self.prepare_curriculum_learning(self.args['cl'])
 
         # Load parameters
-        with open(pre_path+"params.yaml") as f:
+        with open(pre_path+"params_sac.yaml") as f:
             params_all = yaml.load(f)
         self.learning_params = params_all["learning_params"]
         self.env_params = params_all["environment_params"]
@@ -194,8 +194,8 @@ class AslaugTrainer:
         text_file.close()
 
         # Save learning params to file
-        params_file = pre_path+"data/saved_models/{}/params.yaml".format(self.folder_name)
-        shutil.copy(pre_path+"params.yaml", params_file)
+        params_file = pre_path+"data/saved_models/{}/params_sac.yaml".format(self.folder_name)
+        shutil.copy(pre_path+"params_sac.yaml", params_file)
 
         # Copy policy to models folder
         shutil.copy(self.policy_mod.__file__,
@@ -261,7 +261,7 @@ class AslaugTrainer:
             self.counter['cl_idx'] += 1
             self.perform_CL()
 
-        
+
         return
         if self.counter['n_steps'] / 5000.0 >= self.counter['info_idx']:
             self.counter['info_idx'] += 1

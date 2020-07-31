@@ -196,7 +196,7 @@ environment_params:
     # Discretiazion resolution of the action space. When 0, the actions are
     # continous (gym.spaces.Box), when > 0 the actions are discrezited
     # (gym.spaces.MultiDiscrete)
-    action_discretization: 5
+    action_discretization: 0 #5
 
     # The normalization used for the setpoint measurements.
     size: 20
