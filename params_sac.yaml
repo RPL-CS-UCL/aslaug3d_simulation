@@ -8,7 +8,7 @@ learning_params:
 
   # Linear learning rate [LR_start, LR_end, T_start, T_end] where
   # T goes from 1 to 0 during training.
-  learning_rate: [0.00025, 0.0002, 0.995, 0.2]
+  learning_rate: [0.0009, 0.0003, 0.995, 0.2]
 
   n_steps: 2048
   nminibatches: 8

@@ -75,7 +75,7 @@ class AslaugTrainer:
         policy_params = {}#{"obs_slicing": obs_slicing}
         policy_params['n_env'] = 1
         policy_params['n_steps'] = 1
-        #learning_starts=100, 
+        SAC_params['learning_starts']=1000 
         # Prepare model, either new or proceeding training (pt)
         if self.args['pt'] is None:
             model = SAC(MlpPolicy, env, verbose=1,
