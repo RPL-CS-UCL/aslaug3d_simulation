@@ -244,4 +244,4 @@ environment_params:
     # lists, even if only a single adaption is used. The inner lists specify
     # which adaptions shall be completed before proceeding with the next
     # element in the outer list.
-    adaptions: []
+    adaptions: [{"param": "setpoint.tol_lin_mag", "start": 0.5, "end": 0.05, "steps": 25}]

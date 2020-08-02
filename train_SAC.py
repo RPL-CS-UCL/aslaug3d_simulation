@@ -56,9 +56,10 @@ class AslaugTrainer:
 
         # Inizialize gyms as vector environments
         aslaug_mod = import_module("envs." + self.model_name)
+        
         def create_gym(): return aslaug_mod.AslaugEnv(params=self.env_params)
-        env = create_gym() #SubprocVecEnv([create_gym for i in range(self.args['n_cpu'])])
-
+        #env = create_gym() #SubprocVecEnv([create_gym for i in range(self.args['n_cpu'])])
+        env = DummyVecEnv([create_gym])
         #env = DummyVecEnv([create_gym for i in range(self.args['n_cpu'])])
         g_env = create_gym()
 

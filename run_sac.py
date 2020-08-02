@@ -150,11 +150,11 @@ class EnvRunner:
         ts_NN = time.time()
         if self.n_recurrent > 0:
             self.action, _ = self.model.predict(np.array(self.obs_hist),
-                                                deterministic=self.deterministic)
+                                                deterministic=True)#self.deterministic)
             self.action = self.action[-1, :]
         else:
             self.action, _ = self.model.predict(self.obs,
-                                                deterministic=self.deterministic)
+                                                deterministic=True)#self.deterministic)
         te_NN = time.time()
         self.fps_NN_queue.pop(0)
         self.fps_NN_queue.append(te_NN - ts_NN)

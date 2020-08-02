@@ -64,7 +64,6 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
                 lows_a = np.append(lows_a, [0, 0])
                 highs_a = np.append(highs_a, [1, 1])
             self.action_space = spaces.Box(lows_a, highs_a)
-
         # Define observation space
         high_sp = np.array([self.p["world"]["size"]] * 2 + [np.pi])
         low_sp = -high_sp
