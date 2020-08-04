@@ -262,8 +262,6 @@ class AslaugTrainer:
             self.counter['cl_idx'] += 1
             self.perform_CL()
 
-
-        return
         if self.counter['n_steps'] / 5000.0 >= self.counter['info_idx']:
             self.counter['info_idx'] += 1
             msr_avg = np.average(
