@@ -74,7 +74,7 @@ class AslaugTrainer:
                          **self.learning_params)
         else:
             pfn, pep = self.args['pt'].split(":")
-            model_path = pre_path+"data/saved_models/{}/aslaug_{}_{}.pkl".format(pfn, self.args['version'], pep)
+            model_path = pre_path+"data/saved_models/{}/aslaug_{}_{}.pkl".format(pfn, self.args['version_old'], pep)
             tb_log_path = pre_path+"data/tb_logs/{}".format(self.folder_name)
             model = PPO2.load(model_path, env=env, verbose=0,
                               tensorboard_log=tb_log_path,
@@ -106,6 +106,9 @@ class AslaugTrainer:
         parser.add_argument("-v", "--version",
                             help="Set env version.",
                             default="v0")
+        parser.add_argument("-v_old", "--version_old",
+                            help="Set env version.",
+                            default="v0")
         parser.add_argument("-f", "--folder",
                             help="Name the folder to save models.",
                             default="None")
@@ -129,7 +132,8 @@ class AslaugTrainer:
                      "policy_arg": args.policy, "n_cp": args.check_point,
                      "folder_name": args.folder,
                      "cl": args.curriculum_learning,
-                     "pt": args.proceed_training}
+                     "pt": args.proceed_training,
+                     "version_old": args.version_old}
 
         # Define model name
         self.model_name = "aslaug_{}".format(self.args['version'])

@@ -62,6 +62,7 @@ class AslaugBaseEnv(gym.Env):
             mb_actions = np.choose(action_d[:3], self.actions[:, :3])
             act_joint_actions = np.choose(action_d[3:], self.actions[:, 3:])
             joint_actions[self.actuator_selection] = act_joint_actions
+            
         else:
             mb_actions = action_d[:3]
             lim_up = self.n_joints + 3

@@ -7,6 +7,8 @@ from stable_baselines.common.vec_env import SubprocVecEnv
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines.sac.policies import MlpPolicy
 from stable_baselines import SAC
+from spinup import sac_pytorch as SU_sac
+
 from millify import millify
 import numpy as np
 
@@ -72,16 +74,24 @@ class AslaugTrainer:
         SAC_params = {}
         SAC_params['gamma'] = 0.999
         SAC_params['learning_rate']= lp['learning_rate']
+        SAC_params['learning_starts']=1000
+        SAC_params['ent_coef']= lp['ent_coef']
+        SAC_params["buffer_size"] = 400e3
+        
         policy_params = {}#{"obs_slicing": obs_slicing}
         policy_params['n_env'] = 1
         policy_params['n_steps'] = 1
-        SAC_params['learning_starts']=1000 
+        policy_params['n_batch'] = None
+        policy_params["obs_slicing"] = obs_slicing
+                          
         # Prepare model, either new or proceeding training (pt)
         if self.args['pt'] is None:
-            model = SAC(MlpPolicy, env, verbose=1,
+            # MlpPolicy
+            model = SAC(self.policy, env, verbose=1,
                          tensorboard_log=pre_path+"data/tb_logs/{}".format(self.folder_name),
                          policy_kwargs=policy_params,
                          **SAC_params)
+                
         else:
             pfn, pep = self.args['pt'].split(":")
             model_path = pre_path+"data/saved_models/{}/aslaug_{}_{}.pkl".format(pfn, self.args['version'], pep)
@@ -124,7 +134,7 @@ class AslaugTrainer:
                             default="None")
         parser.add_argument("-p", "--policy",
                             help="Define policy to use (import path).",
-                            default="policies.aslaug_sac_v0.AslaugPolicy")
+                            default="policies.aslaug_sac_v0.CustomPolicySAC")
         parser.add_argument("-cp", "--check_point",
                             help="# steps in between model checkpoints.",
                             default=500e3)
