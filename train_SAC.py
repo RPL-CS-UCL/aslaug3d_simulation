@@ -76,7 +76,7 @@ class AslaugTrainer:
         SAC_params['learning_rate']= lp['learning_rate']
         SAC_params['learning_starts']=1000
         SAC_params['ent_coef']= lp['ent_coef']
-        SAC_params["buffer_size"] = 400e3
+        SAC_params["buffer_size"] = 10 #400e3
         
         policy_params = {}#{"obs_slicing": obs_slicing}
         policy_params['n_env'] = 1
