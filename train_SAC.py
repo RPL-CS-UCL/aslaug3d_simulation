@@ -76,7 +76,7 @@ class AslaugTrainer:
         SAC_params['learning_rate']= lp['learning_rate']
         SAC_params['learning_starts']=1000
         SAC_params['ent_coef']= lp['ent_coef']
-        SAC_params["buffer_size"] = 10 #400e3
+        SAC_params["buffer_size"] = 100 #400e3
         
         policy_params = {}#{"obs_slicing": obs_slicing}
         policy_params['n_env'] = 1
@@ -125,7 +125,7 @@ class AslaugTrainer:
                             default=10e6)
         parser.add_argument("-n", "--n_cpu",
                             help="Define # processes to use.",
-                            default=16)
+                            default=1)
         parser.add_argument("-v", "--version",
                             help="Set env version.",
                             default="v0")

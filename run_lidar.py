@@ -3,8 +3,9 @@ rem_path = "/opt/ros/kinetic/lib/python2.7/dist-packages"
 if rem_path in sys.path:
     sys.path.remove("/opt/ros/kinetic/lib/python2.7/dist-packages")
 
-from stable_baselines import SAC
+from stable_baselines import PPO2
 import gym
+from stable_baselines.common.vec_env import DummyVecEnv
 
 import time
 from importlib import import_module
@@ -14,8 +15,6 @@ import os
 import yaml
 import shutil
 import inspect
-
-
 
 
 class EnvRunner:
@@ -34,11 +33,23 @@ class EnvRunner:
         self.n_recurrent = n_recurrent
         self.obs_list = []
         self.act_list = []
-        # Load model
-        self.load_model()
+        
+
+        self.scan_dataset = []
 
         # Load environment
         self.load_env()
+        
+        # Load module for policy
+        policy_mod_name = ".".join("policies.aslaug_policy_lidar.AslaugPolicy".split(".")[:-1])
+        self.policy_name = "policies.aslaug_policy_lidar.AslaugPolicy".split(".")[-1]
+        self.policy_mod = import_module(policy_mod_name)
+        self.policy = getattr(self.policy_mod, self.policy_name)
+
+        self.model = PPO2(self.policy, DummyVecEnv([lambda : self.env]), 
+            verbose=1,tensorboard_log="data/tb_logs/{}".format(self.folder),
+            policy_kwargs={"obs_slicing": self.env.obs_slicing})
+        
 
         # Prepare pretty-print
         np.set_printoptions(precision=2, suppress=True, sign=' ')
@@ -49,9 +60,9 @@ class EnvRunner:
 
     def load_env(self):
         # Load module
-        mod_path = "data.saved_models.{}.{}".format(folder, self.model_name)
+        mod_path = "envs.{}".format(self.model_name)
         # mod_path = "envs.{}".format(self.model_name)
-        mod_file_path = "data/saved_models/{}".format(folder)
+        mod_file_path = "envs".format(folder)
 
         base_path = mod_file_path + "/aslaug_base.py"
         if not os.path.exists(base_path):
@@ -61,7 +72,7 @@ class EnvRunner:
 
         aslaug2d_mod = import_module(mod_path)
 
-        param_path = mod_file_path + "/params_sac.yaml"
+        param_path = mod_file_path + "/params.yaml"
         params = None
         if os.path.exists(param_path):
             with open(param_path) as f:
@@ -86,20 +97,6 @@ class EnvRunner:
             self.vid_n = vid_n
         self.env = env
         self.done = False
-
-    def load_model(self):
-        model_path = "data/saved_models/"
-        if folder:
-            model_path = model_path + self.folder + "/"
-        else:
-            model_path = model_path + self.model_name + "/"
-
-        model_path = model_path + self.model_name
-
-        if self.episode:
-            model_path = model_path + "_" + self.episode + ".pkl"
-
-        self.model = SAC.load(model_path)
 
     def run_n_episodes(self, n_episodes=1):
         self.n_success = 0
@@ -148,19 +145,47 @@ class EnvRunner:
         self.n_sp_tot = 0
         return self.obs
 
+    def gather_data(self, scan1, scan2):
+
+        self.scan_dataset.append(scan1.tolist()+scan2.tolist())
+
+        if len(self.scan_dataset) > 100:
+            save_path = "./data/lidar_data_both.npy"
+            scan_dataset_np = np.array(self.scan_dataset)
+            if (os.path.exists(save_path)):
+                if (os.path.isfile(save_path)):
+                    scan_dataset_0 = np.load(save_path)
+                    scan_dataset_np = np.concatenate(
+                        (scan_dataset_0, scan_dataset_np),
+                        axis=0)
+                    os.remove(save_path)
+            np.save(save_path, scan_dataset_np)
+            print ("Saved dataset with total size {:}".format(
+                scan_dataset_np.shape[0]))
+            self.scan_dataset = []
+        return
+
     def step(self, print_status=True):
+
         ts_NN = time.time()
         if self.n_recurrent > 0:
             self.action, _ = self.model.predict(np.array(self.obs_hist),
-                                                deterministic=True)#self.deterministic)
+                                                deterministic=self.deterministic)
             self.action = self.action[-1, :]
         else:
             self.action, _ = self.model.predict(self.obs,
-                                                deterministic=True)#self.deterministic)
+                                                deterministic=self.deterministic)
         te_NN = time.time()
         self.fps_NN_queue.pop(0)
         self.fps_NN_queue.append(te_NN - ts_NN)
         self.obs, self.reward, self.done, self.info = self.env.step(self.action)
+
+
+
+        sl = self.env.obs_slicing   
+        scan1 = self.obs[sl[5]:sl[6]]
+        scan2 = self.obs[sl[6]:sl[7]]
+        self.gather_data(scan1, scan2)
 
         if self.record_video:
             self.obs_list.append(self.obs.tolist())
@@ -173,28 +198,13 @@ class EnvRunner:
             obs = self.obs
             if hasattr(self.env, "obs_slicing"):
                 sl = self.env.obs_slicing
-                print("Obs slicing: {}".format(sl))
-                obs = ("Setpoint:\n{}\nMBvel:\n{}\nLinkpos:\n{}\n" +
-                       "Jointpos:\n{}\nJointvel:\n{}\nScan_f:\n{}\n" +
-                       "Scan_r:\n{}\n"
-                       ).format(obs[sl[0]:sl[1]], obs[sl[1]:sl[2]],
-                                obs[sl[2]:sl[3]], obs[sl[3]:sl[4]],
-                                obs[sl[4]:sl[5]], obs[sl[5]:sl[6]],
+                obs = ("Scan_f:\n{}\n" +"Scan_r:\n{}\n"
+                       ).format( obs[sl[5]:sl[6]],
                                 obs[sl[6]:sl[7]])
                 succ_rate = self.env.calculate_success_rate()
 
-            print("===============================\n",
-                  "Observations\n{}\n\n".format(obs),
-                  "Actions\n{}\n".format(self.action),
-                  "Reward: {}\n".format(self.reward),
-                  "Cum. reward: {}\n".format(self.cum_reward),
-                  "Success rate: {}\n".format(succ_rate),
-                  "Episode: {}\n".format(self.episode_id),
-                  "Setpoint: {}\n".format(self.env.episode_counter),
-                  "FPS total: {}\n".format(len(self.fps_queue)/sum(self.fps_queue)),
-                  "FPS NN: {}\n".format(len(self.fps_NN_queue)/sum(self.fps_NN_queue)),
-                  "\n\nGoal distance: {}\n".format(self.env.last_eucl_dis),
-                  "===============================\n\n\n")
+            print(#"Observations\n{}\n\n".format(obs),
+                  "Setpoint: {}\n".format(self.env.episode_counter))
 
     def render(self):
         self.env.render(w=720, h=480)  # 'human_fast', 600, 400
@@ -204,8 +214,8 @@ class EnvRunner:
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("-v", "--version", help="Define version of env to use.")
-parser.add_argument("-f", "--folder", help="Specify folder to use.")
+parser.add_argument("-v", "--version", help="Define version of env to use.", default="vA")
+parser.add_argument("-f", "--folder", help="Specify folder to use.", default="lidar")
 # parser.add_argument("-e", "--episode", help="Specify exact episode to use.")
 parser.add_argument("-r", "--record_video", help="Specify recording folder.")
 parser.add_argument("-n", "--n_episodes", help="Specify number of episodes.",
@@ -214,7 +224,7 @@ parser.add_argument("-cfr", "--copy_from_remote", help="Specify if files should 
 parser.add_argument("-det", "--deterministic", help="Set deterministic or probabilistic actions.", default="False")
 parser.add_argument("-fcam", "--free_cam", help="Set camera free.", default="False")
 parser.add_argument("-nosleep", "--no_sleep", help="Set camera free.", default="False")
-parser.add_argument("-nogui", "--no_gui", help="Set camera free.", default="False")
+parser.add_argument("-nogui", "--no_gui", help="Set camera free.", default="True")
 parser.add_argument("-p", "--param", action='append',
                     help="Set a specific param a-priori. Example to adjust \
                     parameter p[reward][1] to 12: -p reward.1:12")
@@ -222,9 +232,6 @@ args = parser.parse_args()
 
 version = args.version
 folder = args.folder
-ep = None
-if folder is not None and len(folder.split(":")) > 1:
-    folder, ep = folder.split(":")
 record_video = args.record_video
 n_episodes = int(args.n_episodes)
 free_cam = True if args.free_cam in ["True", "true", "1"] else False
@@ -235,14 +242,7 @@ param = args.param
 if version is None:
     print("Please specify a version. Example: -v v8")
 
-if args.copy_from_remote in ['1', 'True', 'true']:
-    os.system("rsync -rav -e ssh --exclude '*.pkl' mapcompute:~/aslaug3d_simulation/data/saved_models/{} data/saved_models".format(folder))
-    os.system("rsync -rav -e ssh mapcompute:~/aslaug3d_simulation/data/saved_models/{}/aslaug_{}_{}.pkl data/saved_models/{}".format(folder, version, ep, folder))
-
-if args.copy_from_remote in ['2']:
-    os.system("rsync -rav -e ssh wgserver:~/aslaug3d_simulation/data/saved_models/{} data/saved_models".format(folder))
-
-er = EnvRunner(version, ep, folder, record_video, deterministic, free_cam,
+er = EnvRunner(version, None, folder, record_video, deterministic, free_cam,
                no_sleep, not no_gui)
 
 # Prepare curriculum learning
@@ -253,7 +253,6 @@ if param is not None:
 
 print("=======================================\n",
       "Version: {}\n".format(version),
-      "Episode: {}\n".format(ep),
       "Folder: {}\n".format(folder),
       "Deterministic: {}\n".format(deterministic),
       "=======================================\n")
