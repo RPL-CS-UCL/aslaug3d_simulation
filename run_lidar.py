@@ -150,7 +150,7 @@ class EnvRunner:
         self.scan_dataset.append(scan1.tolist()+scan2.tolist())
 
         if len(self.scan_dataset) > 100:
-            save_path = "./data/lidar_data_both.npy"
+            save_path = "./lidar_autoencoder/lidar_data_both.npy"
             scan_dataset_np = np.array(self.scan_dataset)
             if (os.path.exists(save_path)):
                 if (os.path.isfile(save_path)):

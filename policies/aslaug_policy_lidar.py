@@ -1,7 +1,12 @@
 import tensorflow as tf
 from stable_baselines.common.policies import ActorCriticPolicy
 from tensorflow.keras.layers import Lambda
-
+from gym import spaces
+import torch
+import numpy as np 
+import sys, os 
+sys.path.insert(0,"./lidar_autoencoder/")
+from lidar_autoencoder import *
 
 class AslaugPolicy(ActorCriticPolicy):
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch,
@@ -11,14 +16,25 @@ class AslaugPolicy(ActorCriticPolicy):
             obs_slicing = kwargs["obs_slicing"]
         else:
             obs_slicing = [0, 6, 9, 57, 64, 71, 272, 473]
+        self.obs_slicing = obs_slicing
 
-        ob_space_low = ob_space.low
-        ob_space_high = ob_space.high
-
-        ob_space.low = ob_space_low[:obs_slicing[5]+1]
-        ob_space.high = ob_space_high[:obs_slicing[5]+1]
-
+        n_scans = 201
+        latent_dim = 128
+        ob_space_low =  ob_space.low[:obs_slicing[5]].tolist()
+        ob_space_low = np.array(ob_space_low + 128*[0.0])
+        ob_space_high =  ob_space.high[:obs_slicing[5]].tolist()
+        ob_space_high = np.array(ob_space_high + 128*[5.0])
         
+        ob_space = spaces.Box(ob_space_low, ob_space_high)
+
+        self.LAE = LidarAutoencoder(
+            n_scans = n_scans*2,
+            latent_dim = latent_dim,
+            capacity=2).to("cpu")
+        # self.LAE load
+
+        self.LAE.eval()
+
         super(AslaugPolicy, self).__init__(sess, ob_space, ac_space,
                                            n_env, n_steps, n_batch,
                                            reuse=reuse, scale=False)
@@ -41,55 +57,11 @@ class AslaugPolicy(ActorCriticPolicy):
             in_lp = self.crop(1, o[2], o[3])(proc_obs)
             in_jp = self.crop(1, o[3], o[4])(proc_obs)
             in_jv = self.crop(1, o[4], o[5])(proc_obs)
-            in_sc1 = self.crop(1, o[5], o[6])(proc_obs)
-            in_sc2 = self.crop(1, o[6], o[7])(proc_obs)
+            in_scans_latent = self.crop(1, o[5], o[5]+latent_dim)(proc_obs)
 
         with tf.variable_scope("model/scan_block", reuse=reuse):
 
-            sl_1 = tf.layers.Conv1D(2, 11, activation=lrelu, name="sc_1")
-            sl_2 = tf.layers.Conv1D(4, 7, activation=lrelu, name="sc_2")
-            sl_3 = tf.layers.Conv1D(8, 3, activation=lrelu, name="sc_3")
-            sl_4 = tf.layers.MaxPooling1D(3, 3, name="sc_4")
-            sl_5 = tf.layers.Conv1D(8, 7, activation=lrelu, name="sc_5")
-            sl_6 = tf.layers.Conv1D(8, 5, activation=lrelu, name="sc_6")
-            sl_7 = tf.layers.MaxPooling1D(3, 3, name="sc_7")
-            sl_8 = tf.layers.Conv1D(8, 3, activation=lrelu, name="sc_8")
-            sl_9 = tf.layers.Flatten(name="sc_9")
-            sl_10 = tf.layers.Dense(128, activation=lrelu, name="sc_10")
-            sl_11 = tf.layers.Dense(64, activation=lrelu, name="s1_11")
-            sl_out = tf.layers.Dense(64, activation=lrelu, name="s1_out")
-
-            s1_0 = tf.expand_dims(in_sc1, -1)
-            s1_1 = sl_1(s1_0)
-            s1_2 = sl_2(s1_1)
-            s1_3 = sl_3(s1_2)
-            s1_4 = sl_4(s1_3)
-            s1_5 = sl_5(s1_4)
-            s1_6 = sl_6(s1_5)
-            s1_7 = sl_7(s1_6)
-            s1_8 = sl_8(s1_7)
-            s1_9 = sl_9(s1_8)
-            s1_10 = sl_10(s1_9)
-            s1_11 = sl_11(s1_10)
-            s1_out = sl_out(s1_11)
-
-            s2_0 = tf.expand_dims(in_sc2, -1)
-            s2_1 = sl_1(s2_0)
-            s2_2 = sl_2(s2_1)
-            s2_3 = sl_3(s2_2)
-            s2_4 = sl_4(s2_3)
-            s2_5 = sl_5(s2_4)
-            s2_6 = sl_6(s2_5)
-            s2_7 = sl_7(s2_6)
-            s2_8 = sl_8(s2_7)
-            s2_9 = sl_9(s2_8)
-            s2_10 = sl_10(s2_9)
-            s2_11 = sl_11(s2_10)
-            s2_out = sl_out(s2_11)
-
-            sc_0 = tf.keras.layers.Concatenate(name="sc_0")([s1_out, s2_out])
-            sc_1 = tf.layers.Dense(128, activation=lrelu, name="sc_1")(sc_0)
-            sc_2 = tf.layers.Dense(64, activation=lrelu, name="sc_2")(sc_1)
+            sc_2 = tf.layers.Dense(64, activation=lrelu, name="sc_2")(in_scans_latent)
             sc_out = tf.layers.Dense(64, activation=lrelu, name="sc_out")(sc_2)
 
         with tf.variable_scope("model/combination_block", reuse=reuse):
@@ -130,6 +102,13 @@ class AslaugPolicy(ActorCriticPolicy):
         self._setup_init()
 
     def step(self, obs, state=None, mask=None, deterministic=False):
+        scans = obs[0,self.obs_slicing[5]:]
+        scans = torch.Tensor(scans)
+        scans = scans.unsqueeze(0).unsqueeze(0).to("cpu")
+        ret, lat = self.LAE(scans)
+        lat = lat.detach().numpy()
+        obs = np.concatenate(([obs[0,:self.obs_slicing[5]]], lat), axis=1)
+
         if deterministic:
             action, value, neglogp = self.sess.run([self.deterministic_action,
                                                     self.value_flat,
