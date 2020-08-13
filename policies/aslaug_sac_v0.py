@@ -36,7 +36,7 @@ class CustomPolicySAC(SACPolicy):
         self.cnn_extractor = self.make_feature_extractor #cnn_extractor
         self.reuse = reuse
         if layers is None:
-            layers = [256, 128, 64, 32, 16]
+            layers = [64, 32]
         self.layers = layers
         self.reg_loss = None
         self.reg_weight = reg_weight
@@ -123,12 +123,12 @@ class CustomPolicySAC(SACPolicy):
                                                        in_jv])
         c_1 = tf.layers.Dense(512, activation=lrelu, name="c_1")(c_0)
         c_2 = tf.layers.Dense(256, activation=lrelu, name="c_2")(c_1)
-        c_3 = tf.layers.Dense(256, activation=lrelu, name="c_3")(c_2)
-        c_4 = tf.layers.Dense(128, activation=lrelu, name="c_4")(c_3)
-        c_5 = tf.layers.Dense(128, activation=lrelu, name="c_5")(c_4)
-        c_6 = tf.layers.Dense(64, activation=lrelu, name="c_6")(c_5)
-        c_7 = tf.layers.Dense(64, activation=lrelu, name="c_7")(c_6)
-        c_out = tf.layers.Dense(32, activation=lrelu, name="c_out")(c_7)
+        #c_3 = tf.layers.Dense(256, activation=lrelu, name="c_3")(c_2)
+        c_4 = tf.layers.Dense(128, activation=lrelu, name="c_4")(c_2)
+        #c_5 = tf.layers.Dense(128, activation=lrelu, name="c_5")(c_4)
+        c_6 = tf.layers.Dense(64, activation=lrelu, name="c_6")(c_4)
+        #c_7 = tf.layers.Dense(64, activation=lrelu, name="c_7")(c_6)
+        c_out = tf.layers.Dense(32, activation=lrelu, name="c_out")(c_6)
 
         feature_extractor = c_out
         return feature_extractor
