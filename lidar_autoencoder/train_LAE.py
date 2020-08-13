@@ -17,8 +17,8 @@ sys.path.insert(0, "../../")
 from lidar_autoencoder import *
 
 seed = np.random.randint(0,999999)
-batch_size = 100
-epochs = 1
+batch_size = 20
+epochs = 3
 N_avg_loss_checks = 100
 loss_threshold = 0.1
 n_scans = 201 
