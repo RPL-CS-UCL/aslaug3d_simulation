@@ -31,7 +31,8 @@ class AslaugPolicy(ActorCriticPolicy):
             n_scans = n_scans*2,
             latent_dim = latent_dim,
             capacity=2).to("cpu")
-        # self.LAE load
+        lae_path = "./lidar_autoencoder/cp_LAE_{:}_{:}.pth".format(n_scans,latent_dim)
+        self.LAE.load_state_dict(torch.load(lae_path))
 
         self.LAE.eval()
 
