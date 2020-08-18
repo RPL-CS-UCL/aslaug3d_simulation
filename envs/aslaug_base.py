@@ -5,7 +5,7 @@ import pybullet as pb
 import pybullet_data
 import os
 import yaml
-
+import time
 
 class AslaugBaseEnv(gym.Env):
     metadata = {
@@ -48,6 +48,7 @@ class AslaugBaseEnv(gym.Env):
         '''
         Executes one step.
         '''
+        t0=time.time()
         self.step_no += 1
 
         # Extract current state
@@ -144,7 +145,7 @@ class AslaugBaseEnv(gym.Env):
 
         # Obtain observation
         obs = self.calculate_observation()
-
+        #print(time.time()-t0)
         return obs, reward, done, info
 
     def render(self, mode='human', w=1280, h=720):
