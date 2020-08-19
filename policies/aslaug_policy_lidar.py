@@ -112,7 +112,7 @@ class AslaugPolicy(ActorCriticPolicy):
         return obs
 
     def step(self, obs, state=None, mask=None, deterministic=False):
-        obs = encode_obs(obs)
+        obs = self.encode_obs(obs)
         if deterministic:
             action, value, neglogp = self.sess.run([self.deterministic_action,
                                                     self.value_flat,
@@ -126,11 +126,11 @@ class AslaugPolicy(ActorCriticPolicy):
         return action, value, self.initial_state, neglogp
 
     def proba_step(self, obs, state=None, mask=None):
-        obs = encode_obs(obs)
+        obs = self.encode_obs(obs)
         return self.sess.run(self.policy_proba, {self.obs_ph: obs})
 
     def value(self, obs, state=None, mask=None):
-        obs = encode_obs(obs)
+        obs = self.encode_obs(obs)
         return self.sess.run(self.value_flat, {self.obs_ph: obs})
 
     def crop(self, dimension, start, end):
