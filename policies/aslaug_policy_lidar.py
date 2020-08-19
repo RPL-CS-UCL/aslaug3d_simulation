@@ -17,9 +17,14 @@ class AslaugPolicy(ActorCriticPolicy):
         else:
             obs_slicing = [0, 6, 9, 57, 64, 71, 272, 473]
         self.obs_slicing = obs_slicing
-
+        
         n_scans = 201
+        self.n_scans=n_scans
         latent_dim = 128
+        
+        self.obs_slicing = [obs_slicing[i] for i in range(6)] + [obs_slicing[5]+latent_dim] 
+        
+
         ob_space_low =  ob_space.low[:obs_slicing[5]].tolist()
         ob_space_low = np.array(ob_space_low + 128*[0.0])
         ob_space_high =  ob_space.high[:obs_slicing[5]].tolist()
@@ -30,7 +35,7 @@ class AslaugPolicy(ActorCriticPolicy):
         self.LAE = LidarAutoencoder(
             n_scans = n_scans*2,
             latent_dim = latent_dim,
-            capacity=2).to("cpu")
+            capacity=2)#.to("cpu")
         lae_path = "./lidar_autoencoder/cp_LAE_{:}_{:}.pth".format(n_scans,latent_dim)
         self.LAE.load_state_dict(torch.load(lae_path))
 
@@ -58,10 +63,14 @@ class AslaugPolicy(ActorCriticPolicy):
             in_lp = self.crop(1, o[2], o[3])(proc_obs)
             in_jp = self.crop(1, o[3], o[4])(proc_obs)
             in_jv = self.crop(1, o[4], o[5])(proc_obs)
+
             in_scans_latent = self.crop(1, o[5], o[5]+latent_dim)(proc_obs)
+            #in_sc1 = self.crop(1, o[5], o[6])(proc_obs)
+            #in_sc2 = self.crop(1, o[6], o[7])(proc_obs)
+            #in_scans_latent = tf.keras.layers.Concatenate(name="in_scans_latent")([in_sc1, in_sc2])
+            
 
         with tf.variable_scope("model/scan_block", reuse=reuse):
-
             sc_2 = tf.layers.Dense(64, activation=lrelu, name="sc_2")(in_scans_latent)
             sc_out = tf.layers.Dense(64, activation=lrelu, name="sc_out")(sc_2)
 
@@ -103,12 +112,12 @@ class AslaugPolicy(ActorCriticPolicy):
         self._setup_init()
 
     def encode_obs (self, obs):
-        scans = obs[0,self.obs_slicing[5]:]
-        scans = torch.Tensor(scans)
-        scans = scans.unsqueeze(0).unsqueeze(0).to("cpu")
+        scans = obs[:,self.obs_slicing[5]:]
+        scans = torch.Tensor(scans).view(obs.shape[0],1,self.n_scans*2)
+        scans = scans#.to("cpu")
         ret, lat = self.LAE(scans)
         lat = lat.detach().numpy()
-        obs = np.concatenate(([obs[0,:self.obs_slicing[5]]], lat), axis=1)
+        obs = np.concatenate((obs[:,:self.obs_slicing[5]], lat), axis=1)
         return obs
 
     def step(self, obs, state=None, mask=None, deterministic=False):
