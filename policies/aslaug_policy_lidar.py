@@ -17,29 +17,6 @@ class AslaugPolicy(ActorCriticPolicy):
         else:
             obs_slicing = [0, 6, 9, 57, 64, 71, 272, 473]
         self.obs_slicing = obs_slicing
-        
-        n_scans = 201
-        self.n_scans=n_scans
-        latent_dim = 128
-        
-        self.obs_slicing = [obs_slicing[i] for i in range(6)] + [obs_slicing[5]+latent_dim] 
-        
-
-        ob_space_low =  ob_space.low[:obs_slicing[5]].tolist()
-        ob_space_low = np.array(ob_space_low + 128*[0.0])
-        ob_space_high =  ob_space.high[:obs_slicing[5]].tolist()
-        ob_space_high = np.array(ob_space_high + 128*[5.0])
-        
-        ob_space = spaces.Box(ob_space_low, ob_space_high)
-
-        self.LAE = LidarAutoencoder(
-            n_scans = n_scans*2,
-            latent_dim = latent_dim,
-            capacity=2)#.to("cpu")
-        lae_path = "./lidar_autoencoder/cp_LAE_{:}_{:}.pth".format(n_scans,latent_dim)
-        self.LAE.load_state_dict(torch.load(lae_path))
-
-        self.LAE.eval()
 
         super(AslaugPolicy, self).__init__(sess, ob_space, ac_space,
                                            n_env, n_steps, n_batch,
@@ -64,7 +41,7 @@ class AslaugPolicy(ActorCriticPolicy):
             in_jp = self.crop(1, o[3], o[4])(proc_obs)
             in_jv = self.crop(1, o[4], o[5])(proc_obs)
 
-            in_scans_latent = self.crop(1, o[5], o[5]+latent_dim)(proc_obs)
+            in_scans_latent = self.crop(1, o[5], o[6])(proc_obs)
             #in_sc1 = self.crop(1, o[5], o[6])(proc_obs)
             #in_sc2 = self.crop(1, o[6], o[7])(proc_obs)
             #in_scans_latent = tf.keras.layers.Concatenate(name="in_scans_latent")([in_sc1, in_sc2])
@@ -111,17 +88,7 @@ class AslaugPolicy(ActorCriticPolicy):
         # self._initial_state = None
         self._setup_init()
 
-    def encode_obs (self, obs):
-        scans = obs[:,self.obs_slicing[5]:]
-        scans = torch.Tensor(scans).view(obs.shape[0],1,self.n_scans*2)
-        scans = scans#.to("cpu")
-        ret, lat = self.LAE(scans)
-        lat = lat.detach().numpy()
-        obs = np.concatenate((obs[:,:self.obs_slicing[5]], lat), axis=1)
-        return obs
-
     def step(self, obs, state=None, mask=None, deterministic=False):
-        obs = self.encode_obs(obs)
         if deterministic:
             action, value, neglogp = self.sess.run([self.deterministic_action,
                                                     self.value_flat,
@@ -135,11 +102,9 @@ class AslaugPolicy(ActorCriticPolicy):
         return action, value, self.initial_state, neglogp
 
     def proba_step(self, obs, state=None, mask=None):
-        obs = self.encode_obs(obs)
         return self.sess.run(self.policy_proba, {self.obs_ph: obs})
 
     def value(self, obs, state=None, mask=None):
-        obs = self.encode_obs(obs)
         return self.sess.run(self.value_flat, {self.obs_ph: obs})
 
     def crop(self, dimension, start, end):
