@@ -38,6 +38,14 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
 
         # Adjust joint limit of joint 4 to avoid self collision in 2D config
         self.joint_limits[3, 0] = -2.7
+        for j in range(7):
+            index = self.joint_mapping[j]
+            ll = self.joint_limits[j,0]
+            ul = self.joint_limits[j,1]
+            pb.changeDynamics(self.robotId, index,
+                jointLowerLimit=ll,
+                jointUpperLimit=ul,
+                jointLimitForce=1200)
 
         # Initialize score counter for ADR and adaption variables
         self.env_score = EnvScore(self.p["adr"]["batch_size"])
@@ -402,6 +410,8 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
 
         # Disable panda base collision
         pairs = [("camera_rack", x) for x in ["panda_hand", "panda_leftfinger", "panda_rightfinger", "panda_link5", "panda_link6", "panda_link7"]]
+        #pairs = pairs + [("panda_link2", x) for x in ["panda_hand","panda_link5", "panda_link6", "panda_link7"]]
+        #pairs = pairs + [("panda_link1", x) for x in ["panda_hand","panda_link5", "panda_link6", "panda_link7"]]
         self.configure_self_collisions(robot_id, pairs)
 
         return robot_id
