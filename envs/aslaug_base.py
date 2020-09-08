@@ -497,9 +497,10 @@ class AslaugBaseEnv(gym.Env):
         scan_l = np.concatenate((scan_l1, scan_l2))
         scan_h = np.concatenate((scan_h1, scan_h2))
 
+        t0 = time.time()
         scan_r = pb.rayTestBatch(scan_l.tolist(), scan_h.tolist(),
                                  self.clientId)
-
+        #print (time.time()-t0)
         scan = [x[2]*self.p["sensors"]["lidar"]["range"] for x in scan_r]
         scan_front = scan[:len(scan_l1)]
         scan_rear = scan[len(scan_l1):]
