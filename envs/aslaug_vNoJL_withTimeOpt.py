@@ -168,7 +168,7 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
 
         # When close to the object, we care more about how quick it 
         # gets it than, how much it deviates from path.
-        if rem_dis > 1.0:
+        if rem_dis > 2.0:
             reward += fac_dtp*delta_dtp
         else:
             reward += 0.2*fac_dtp*delta_dtp
@@ -179,7 +179,7 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
         self.last_remaining_dis = rem_dis
 
         # Reward: Timeout
-        if rem_dis > 1.0:
+        if rem_dis > 2.0:
             reward += self.p["reward"]["rew_timeout"] / self.timeout_steps
         else:
             reward += 2 * self.p["reward"]["rew_timeout"] / self.timeout_steps
