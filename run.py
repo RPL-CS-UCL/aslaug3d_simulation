@@ -172,13 +172,13 @@ class EnvRunner:
             if hasattr(self.env, "obs_slicing"):
                 sl = self.env.obs_slicing
                 print("Obs slicing: {}".format(sl))
-                obs = ("Setpoint:\n{}\nMBvel:\n{}\nLinkpos:\n{}\n" +
-                       "Jointpos:\n{}\nJointvel:\n{}\nScan_f:\n{}\n" +
-                       "Scan_r:\n{}\n"
-                       ).format(obs[sl[0]:sl[1]], obs[sl[1]:sl[2]],
-                                obs[sl[2]:sl[3]], obs[sl[3]:sl[4]],
-                                obs[sl[4]:sl[5]], obs[sl[5]:sl[6]],
-                                obs[sl[6]:sl[7]])
+                #    obs = ("Setpoint:\n{}\nMBvel:\n{}\nLinkpos:\n{}\n" +
+                #           "Jointpos:\n{}\nJointvel:\n{}\nScan_f:\n{}\n" +
+                #           "Scan_r:\n{}\n"
+                #           ).format(obs[sl[0]:sl[1]], obs[sl[1]:sl[2]],
+                #                    obs[sl[2]:sl[3]], obs[sl[3]:sl[4]],
+                #                    obs[sl[4]:sl[5]], obs[sl[5]:sl[6]],
+                #                    obs[sl[6]:sl[7]])
                 succ_rate = self.env.calculate_success_rate()
 
             print("===============================\n",

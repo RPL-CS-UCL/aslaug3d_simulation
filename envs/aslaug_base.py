@@ -6,6 +6,7 @@ import pybullet_data
 import os
 import yaml
 import time
+import matplotlib.pyplot as plt
 
 class AslaugBaseEnv(gym.Env):
     metadata = {
@@ -460,9 +461,249 @@ class AslaugBaseEnv(gym.Env):
         mb_vel_w = np.array(v_lin[0:2] + v_ang[2:3])
         return self.rotation_matrix(mb_ang_w).T.dot(mb_vel_w)
 
-    def get_lidar_scan(self):
-        if self.valid_buffer_scan:
-            return self.last_scan
+    def closest_node(self, node, nodes):
+        dist_2 = np.sum((nodes - node)**2, axis=1)
+        return np.argmin(dist_2)
+
+
+    def getRelativePointToGlobalPoint(self, pt):
+        # placeholder
+        mb_link_state = pb.getLinkState(self.robotId, self.baseLinkId,
+                                        False, False, self.clientId)
+        rpos = mb_link_state[0]
+        rori = mb_link_state[1]
+        R = np.array(pb.getMatrixFromQuaternion(rori))
+        R = np.reshape(R, (3, 3))
+
+        glob_pt = R.dot(np.array(pt))+rpos
+        return glob_pt
+
+    def getGlobalPointToRelativePoint(self, pt, linkId):
+        # placeholder
+        mb_link_state = pb.getLinkState(self.robotId, linkId,
+                                        False, False, self.clientId)
+        rpos = np.array(mb_link_state[0])
+        rori = mb_link_state[1]
+    
+        R = np.array(pb.getMatrixFromQuaternion(rori))
+        R = np.reshape(R, (3, 3))
+
+        if len(pt) <= 2:
+            pt = 2* [rpos.tolist()]
+        pt = np.array(pt)
+
+        rel_pt = np.linalg.inv(R).dot((pt-rpos[np.newaxis]).T)[:2,:].T
+        
+        return rel_pt
+
+    def get_random_point(self, data,N):
+        idx = np.random.randint(0,N-1)
+        pt = [data[idx,0], data[idx,1]]
+        return pt
+
+    def dist(self, pt0,pt1):
+        return np.sqrt( (pt0[0]-pt1[0])**2 + (pt0[1]-pt1[1])**2 )
+
+    def get_dist_from_line(self, pt, line_pt0, line_pt1):
+        a = pt
+        b = line_pt0
+        c = line_pt1
+        S = (1/2)* abs( a[0]*(b[1]-c[1]) + b[0]*(c[1]-a[1]) + c[0]*(a[1]-b[1]) )
+        h = S/self.dist(b,c)
+        return h
+
+    def find_farthest_point(self, data, line):
+        pt_A = data[line[0]]
+        pt_B = data[line[1]]
+        d_max = 0
+        idx_max = None
+        found = False
+        for i,point in enumerate(data):
+            if i <= line[0] or i >= line[1]:
+                continue
+            d = self.get_dist_from_line(point, pt_A, pt_B)
+            if d >= d_max:
+                d_max = d
+                idx_max = i
+                found = True
+        return idx_max, d_max, found
+
+    def segment_line(self, data, line, d_thresh):
+        j, d_j, found = self.find_farthest_point(data, line)
+        if found and (d_j > d_thresh):
+            success = True
+            return [[line[0], j], [j,line[1]]], success
+        else:
+            success = False
+            return [line], success
+
+    def vis_lines(self, data, lines, axis=None):
+        for line in lines:
+            if axis == None:
+                plt.plot([data[line[0]][0], data[line[1]][0]], 
+                         [data[line[0]][1], data[line[1]][1]], 
+                  color='purple', marker='.',
+                  label='Random Point')
+            else:
+                axis.plot([data[line[0]][0], data[line[1]][0]], 
+                         [data[line[0]][1], data[line[1]][1]], 
+                  color='purple', marker='.',
+                  label='Random Point')
+
+    def vis_lines3D(self, data, lines):
+        for line in lines:
+            pt0 = data[line[0]]
+            pt1 = data[line[1]]
+            pb.addUserDebugLine(
+                self.getRelativePointToGlobalPoint(
+                    [pt0[0],pt0[1], 0.05]),
+                self.getRelativePointToGlobalPoint(
+                    [pt1[0],pt1[1], 0.05]),
+                    [1,0,0],lifeTime=1)
+        return
+
+    def segment_scan(self,data, d_thresh):
+        N = data.shape[0]
+        lines = [[0,N-1]]
+        fully_segmented = [False]
+        while (True):
+            new_lines_list = []
+            new_fully_segmented = []
+            for i, line_i in enumerate(lines):  
+                if fully_segmented[i]:
+                    new_lines_list += [line_i]
+                    new_fully_segmented += [True]
+                    continue
+                new_lines, success = self.segment_line(data, line_i, d_thresh)
+                new_lines_list += new_lines
+                new_fully_segmented += [ not success for _ in new_lines ]
+            lines = new_lines_list
+            fully_segmented = new_fully_segmented
+            if False not in fully_segmented:
+                break
+        return lines
+
+    def filter_line_segments(self, lines, filter_thresh=2):
+        new_lines_list = []
+        for line in lines:
+            if abs(line[1] - line[0]) > filter_thresh:
+                new_lines_list.append(line)
+        return new_lines_list
+
+    def get_segmented_lines_map(self, hits_rel, d_thresh=0.05):
+        # Assumes data input is already sorted
+        data = np.array(hits_rel)
+        lines = self.segment_scan(data, d_thresh)
+        lines = self.filter_line_segments(lines)
+        return lines
+
+    def get_lidar_rays(self, lidarLinkId):
+        # Get pose of lidar
+        states = pb.getLinkState(self.robotId, lidarLinkId,
+                                 False, False, self.clientId)
+        lidar_pos, lidar_ori = states[4:6]
+        lidar_pos = np.array(lidar_pos)
+        R = np.array(pb.getMatrixFromQuaternion(lidar_ori))
+        R = np.reshape(R, (3, 3))
+        scan_l = R.dot(self.rays[0]).T + lidar_pos
+        scan_h = R.dot(self.rays[1]).T + lidar_pos
+        return scan_l, scan_h
+
+    def get_global_hits(self, scan, scan_l, scan_h, filter_thresh=0.99):
+        # Returns the global points of the scan hits
+        # in shape ( N hits x 3 dimensions)
+
+        # Scan hit 
+        scan_range = self.p["sensors"]["lidar"]["range"]
+        hits = []
+        for i, scan_i in enumerate(scan):
+            if scan_i > filter_thresh * scan_range:
+                continue
+            hit_global = scan_i * (scan_h[i] - scan_l[i])/scan_range + scan_l[i]
+            hits.append(hit_global)
+        return hits
+
+
+
+    def get_closest_lines(self, scan, scan_l, scan_h, lidarLinkId):
+        hits = self.get_global_hits(scan, scan_l, scan_h)
+     
+        hits_rel = self.getGlobalPointToRelativePoint(hits, self.baseLinkId)
+        hits_rel = sorted(hits_rel.tolist(), key = lambda pt : np.arctan2(pt[1], pt[0]))
+        hits_rel = np.array(hits_rel)
+
+        # Segment LIDAR map into lines
+        lines = self.get_segmented_lines_map(hits_rel)
+
+        # Define corners
+        # z was chosen arbitrary for visualization
+        # it is not used by the actual code.
+        # distances body frame to <_>
+        # TODO: Move to config file.
+        d_body_to_front = 0.16
+        d_body_to_back  =-0.7
+        d_body_to_left  = 0.33
+        d_body_to_right =-0.33
+        corners = []
+        corners.append([d_body_to_front, d_body_to_left, 0.002])
+        corners.append([d_body_to_front, d_body_to_right, 0.002])
+        corners.append([d_body_to_back, d_body_to_left, 0.002])
+        corners.append([d_body_to_back, d_body_to_right, 0.002]) 
+
+        """
+        fig, (ax1, ax2) = plt.subplots(1,2,figsize=(9,5))
+        ax1.set_xlim([-6,6])
+        ax1.set_ylim([-6,6])
+        ax2.set_xlim([-6,6])
+        ax2.set_ylim([-6,6])
+        ax1.scatter(x=0, y=0, label="Robot", c="red", s=3, marker='x')
+        ax1.scatter(x = hits_rel[:,0], y = hits_rel[:,1], c="yellowgreen", s=3, marker='.')
+        ax2.scatter(x=0, y=0, label="Robot", c="red", s=3, marker='x')
+        ax2.scatter(x = hits_rel[:,0], y = hits_rel[:,1], c="yellowgreen", s=3, marker='.')
+        """
+        
+        # Find closest to each corner
+        feats = []
+        for corner in corners:
+            closest_id = self.closest_node(
+                np.array([[corner[0],corner[1]]]), 
+                hits_rel)
+            lines_including = [line for line in lines if (closest_id >= line[0] and closest_id <= line[1])]
+            if len(lines_including) >= 2:
+                line_feats = lines_including[0] + lines_including[1]
+            elif len(lines_including) == 1:
+                line_feats = 2 * lines_including[0] 
+            else:
+                print ("Weird LIDAR points detected, check.")
+                line_feats = 2 * [0.0, 0.0] 
+            feats += line_feats
+
+            """
+            ax2.scatter(x=hits_rel[closest_id][0],
+                        y=hits_rel[closest_id][1], 
+                        c="r", s=2, marker=".")
+            ax2.plot([hits_rel[line_feats[0]][0], 
+                      hits_rel[line_feats[1]][0]],
+                     [hits_rel[line_feats[0]][1], 
+                      hits_rel[line_feats[1]][1]], 
+                     c="r")
+            ax2.plot([hits_rel[line_feats[2]][0], 
+                      hits_rel[line_feats[3]][0]],
+                     [hits_rel[line_feats[2]][1], 
+                      hits_rel[line_feats[3]][1]], 
+                     c="r")
+
+            """    
+
+        """    
+        self.vis_lines(hits_rel, lines, axis=ax1)
+        ax1.grid()
+        ax2.grid()
+        plt.show()
+        """
+        return feats
+
+    def get_lidar_scan(self, closest_flag = False):
         '''
         Obtain lidar scan values for current state.
 
@@ -470,29 +711,16 @@ class AslaugBaseEnv(gym.Env):
             list: Scan values for range and resolution specified in
                 params dict.
         '''
+        if self.valid_buffer_scan:
+            if closest_flag:
+                return self.last_feats
+            return self.last_scan
+        
         scan_front = None
         scan_rear = None
 
-
-        # Get pose of lidar
-        states = pb.getLinkState(self.robotId, self.lidarLinkId1,
-                                 False, False, self.clientId)
-        lidar_pos, lidar_ori = states[4:6]
-        lidar_pos = np.array(lidar_pos)
-        R = np.array(pb.getMatrixFromQuaternion(lidar_ori))
-        R = np.reshape(R, (3, 3))
-        scan_l1 = R.dot(self.rays[0]).T + lidar_pos
-        scan_h1 = R.dot(self.rays[1]).T + lidar_pos
-
-        # Get pose of lidar
-        states = pb.getLinkState(self.robotId, self.lidarLinkId2,
-                                 False, False, self.clientId)
-        lidar_pos, lidar_ori = states[4:6]
-        lidar_pos = np.array(lidar_pos)
-        R = np.array(pb.getMatrixFromQuaternion(lidar_ori))
-        R = np.reshape(R, (3, 3))
-        scan_l2 = R.dot(self.rays[0]).T + lidar_pos
-        scan_h2 = R.dot(self.rays[1]).T + lidar_pos
+        scan_l1, scan_h1 = self.get_lidar_rays(self.lidarLinkId1)
+        scan_l2, scan_h2 = self.get_lidar_rays(self.lidarLinkId2)
 
         scan_l = np.concatenate((scan_l1, scan_l2))
         scan_h = np.concatenate((scan_h1, scan_h2))
@@ -506,6 +734,13 @@ class AslaugBaseEnv(gym.Env):
         scan_rear = scan[len(scan_l1):]
         self.last_scan = [scan_front, scan_rear]
         self.valid_buffer_scan = True
+
+        if closest_flag:
+            # Return closest line features
+            feats = self.get_closest_lines(scan, scan_l, scan_h, self.baseLinkId)
+            self.last_feats = feats
+            return feats 
+
         return [scan_front, scan_rear]
 
     def set_velocities(self, mb_vel_r, joint_vel):
