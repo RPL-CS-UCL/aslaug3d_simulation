@@ -341,7 +341,28 @@ class AslaugBaseEnv(gym.Env):
         return np.array([[np.cos(ang),  -np.sin(ang),   0],
                          [np.sin(ang),  +np.cos(ang),   0],
                          [0,            0,              1]])
+    
+    def homography(self, linkId):
 
+        parent_link_state = pb.getLinkState(
+                                self.robotId, linkId,
+                                False, False, self.clientId)
+        parent_pos = np.array(parent_link_state[0])
+        parent_ori = parent_link_state[1]
+        R = np.array(pb.getMatrixFromQuaternion(parent_ori))
+        
+        T = np.array([
+            [R[0], R[1], R[2], parent_pos[0]],
+            [R[3], R[4], R[5], parent_pos[1]],
+            [R[6], R[7], R[8], parent_pos[2]],
+            [0.0,0.0,0.0,1.0]
+            ])
+        return T
+
+    def homography_vector(self, v):
+        v_h = np.ones((4,v.shape[1]))
+        v_h[:3,:] = v[:,:]
+        return v_h
 
     def get_ee_velocity(self):
         state_ee = pb.getLinkState(self.robotId, self.eeLinkId, True, False,
@@ -466,35 +487,74 @@ class AslaugBaseEnv(gym.Env):
         return np.argmin(dist_2)
 
 
-    def getRelativePointToGlobalPoint(self, pt):
-        # placeholder
-        mb_link_state = pb.getLinkState(self.robotId, self.baseLinkId,
-                                        False, False, self.clientId)
-        rpos = mb_link_state[0]
-        rori = mb_link_state[1]
-        R = np.array(pb.getMatrixFromQuaternion(rori))
-        R = np.reshape(R, (3, 3))
-
-        glob_pt = R.dot(np.array(pt))+rpos
-        return glob_pt
+    def getRelativePointToGlobalPoint(self, pt, linkId):
+        T_w_link = self.homography(linkId)
+        # pt.T = ( 3 x N )
+        pt_bar = self.homography_vector(np.array(pt)[np.newaxis].T)
+        # pt_bar = ( 4 x N )        
+        pt_world_frame = T_w_link.dot(pt_bar)
+        pt_world_frame_T = pt_world_frame[:3].T[0]
+        return pt_world_frame_T
 
     def getGlobalPointToRelativePoint(self, pt, linkId):
-        # placeholder
-        mb_link_state = pb.getLinkState(self.robotId, linkId,
-                                        False, False, self.clientId)
-        rpos = np.array(mb_link_state[0])
-        rori = mb_link_state[1]
-    
-        R = np.array(pb.getMatrixFromQuaternion(rori))
-        R = np.reshape(R, (3, 3))
-
         if len(pt) <= 2:
             pt = 2* [rpos.tolist()]
-        pt = np.array(pt)
 
-        rel_pt = np.linalg.inv(R).dot((pt-rpos[np.newaxis]).T)[:2,:].T
-        
-        return rel_pt
+        pt = np.array(pt)
+        T_w_link = self.homography(linkId)
+        # pt.T = ( 3 x N )
+        pt_bar = self.homography_vector(pt.T)
+        # pt_bar = ( 4 x N )        
+        pt_link_frame = np.linalg.inv(T_w_link).dot(pt_bar)
+        pt_link_frame_T = pt_link_frame[:2].T
+        return pt_link_frame_T
+
+    def get_relative_arm_points(self):
+        T_w_base = self.homography(self.baseLinkId)
+        # The move-able joint points
+        joint_indices = [self.joint_mapping[i] for i, j in enumerate(self.actuator_selection) if j!=0]
+        # TODO: Plus the end-effector point
+        joint_pts = []
+
+        for idx in joint_indices:
+            joint_info = pb.getJointInfo(self.robotId,
+                                        idx,
+                                        self.clientId)
+            joint_pt_in_parent_frame = np.array(joint_info[14])[np.newaxis].T
+            parent_link_Id = joint_info[16]
+            
+            p_j_link_frame = self.homography_vector(joint_pt_in_parent_frame) 
+            T_w_link = self.homography(parent_link_Id)
+            
+            p_j_world_frame = T_w_link.dot(p_j_link_frame)
+            p_j_base_frame = np.linalg.inv(T_w_base).dot(p_j_world_frame)
+            
+            joint_pt = p_j_base_frame.T[0][:3]     
+
+            #pb.addUserDebugLine(
+            #        self.getRelativePointToGlobalPoint(joint_pt.tolist(), self.baseLinkId),
+            #        self.getRelativePointToGlobalPoint((joint_pt+np.array([1,0,0])).tolist(), self.baseLinkId),
+            #        [1,0,0],lifeTime=1)
+            #pb.addUserDebugLine(
+            #        self.getRelativePointToGlobalPoint(joint_pt.tolist(), self.baseLinkId),
+            #        self.getRelativePointToGlobalPoint((joint_pt+np.array([0,1,0])).tolist(), self.baseLinkId),
+            #        [0,1,0],lifeTime=1)
+            #pb.addUserDebugLine(
+            #        self.getRelativePointToGlobalPoint(joint_pt.tolist(), self.baseLinkId),
+            #        self.getRelativePointToGlobalPoint((joint_pt+np.array([0,0,1])).tolist(), self.baseLinkId),
+            #        [0,0,1],lifeTime=1)
+            joint_pt = joint_pt[:2]
+            joint_pts.append(joint_pt) 
+
+
+        ee_state = pb.getLinkState(
+                                self.robotId, self.eeLinkId,
+                                False, False, self.clientId)
+        p_ee_world_frame = self.homography_vector(np.array(ee_state[0])[np.newaxis].T)
+        p_ee_base_frame = np.linalg.inv(T_w_base).dot(p_ee_world_frame)
+        p_ee_base_frame = p_ee_base_frame[:2,0]
+        joint_pts.append(p_ee_base_frame) 
+        return joint_pts
 
     def get_random_point(self, data,N):
         idx = np.random.randint(0,N-1)
@@ -556,9 +616,9 @@ class AslaugBaseEnv(gym.Env):
             pt1 = data[line[1]]
             pb.addUserDebugLine(
                 self.getRelativePointToGlobalPoint(
-                    [pt0[0],pt0[1], 0.05]),
+                    [pt0[0],pt0[1], 0.05], self.baseLinkId),
                 self.getRelativePointToGlobalPoint(
-                    [pt1[0],pt1[1], 0.05]),
+                    [pt1[0],pt1[1], 0.05], self.baseLinkId),
                     [1,0,0],lifeTime=1)
         return
 
@@ -650,6 +710,10 @@ class AslaugBaseEnv(gym.Env):
         corners.append([d_body_to_back, d_body_to_left, 0.002])
         corners.append([d_body_to_back, d_body_to_right, 0.002]) 
 
+        pts = self.get_relative_arm_points()
+        corners += pts
+        
+
         """
         fig, (ax1, ax2) = plt.subplots(1,2,figsize=(9,5))
         ax1.set_xlim([-6,6])
@@ -660,8 +724,8 @@ class AslaugBaseEnv(gym.Env):
         ax1.scatter(x = hits_rel[:,0], y = hits_rel[:,1], c="yellowgreen", s=3, marker='.')
         ax2.scatter(x=0, y=0, label="Robot", c="red", s=3, marker='x')
         ax2.scatter(x = hits_rel[:,0], y = hits_rel[:,1], c="yellowgreen", s=3, marker='.')
-        """
         
+        """
         # Find closest to each corner
         feats = []
         for corner in corners:
@@ -670,18 +734,25 @@ class AslaugBaseEnv(gym.Env):
                 hits_rel)
             lines_including = [line for line in lines if (closest_id >= line[0] and closest_id <= line[1])]
             if len(lines_including) >= 2:
-                line_feats = lines_including[0] + lines_including[1]
+                l0_0 = hits_rel[lines_including[0][0]]
+                l0_1 = hits_rel[lines_including[0][1]]
+                l1_0 = hits_rel[lines_including[1][0]]
+                l1_1 = hits_rel[lines_including[1][1]]
+                line_feats = np.concatenate([l0_0,l0_1,l1_0,l1_1]).tolist()
             elif len(lines_including) == 1:
-                line_feats = 2 * lines_including[0] 
+                l0_0 = hits_rel[lines_including[0][0]]
+                l0_1 = hits_rel[lines_including[0][1]]
+                line_feats = np.concatenate([l0_0,l0_1,l0_0,l0_1]).tolist()
             else:
                 print ("Weird LIDAR points detected, check.")
-                line_feats = 2 * [0.0, 0.0] 
+                line_feats = np.array(2*2*2*[0.0]).tolist()
             feats += line_feats
-
-            """
+           
+            """ 
             ax2.scatter(x=hits_rel[closest_id][0],
                         y=hits_rel[closest_id][1], 
                         c="r", s=2, marker=".")
+            " ""
             ax2.plot([hits_rel[line_feats[0]][0], 
                       hits_rel[line_feats[1]][0]],
                      [hits_rel[line_feats[0]][1], 
@@ -694,8 +765,8 @@ class AslaugBaseEnv(gym.Env):
                      c="r")
 
             """    
-
-        """    
+   
+        """
         self.vis_lines(hits_rel, lines, axis=ax1)
         ax1.grid()
         ax2.grid()

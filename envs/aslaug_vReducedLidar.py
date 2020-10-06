@@ -89,7 +89,9 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
         high_j_v = np.array([self.p["joints"]["vel_mag"]] * self.n_joints)
         low_j_v = -high_j_v
         rng = self.p["sensors"]["lidar"]["range"]
-        n_closest_points =  4*2
+
+        n_corners = 4 + 3
+        n_closest_points =  n_corners * 4
         high_closest_pt = np.array(2 * n_closest_points * [rng])
         low_closest_pt = np.array(2 * n_closest_points * [0])
 
