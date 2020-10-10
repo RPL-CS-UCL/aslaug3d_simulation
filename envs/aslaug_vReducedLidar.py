@@ -91,7 +91,9 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
         rng = self.p["sensors"]["lidar"]["range"]
 
         n_corners = 4 + 3
-        n_closest_points =  n_corners * 4
+        n_lidars = 2
+        n_points_per_corner = 4
+        n_closest_points =  n_corners * n_lidars * n_points_per_corner
         high_closest_pt = np.array(2 * n_closest_points * [rng])
         low_closest_pt = np.array(2 * n_closest_points * [0])
 
@@ -233,7 +235,7 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
         mb_vel_w[2:3] *= self.np_random.normal(1, std_ang, size=1)
 
         # Observation: Lidar
-        closest_pts = self.get_lidar_scan(closest_flag=True)
+        _, closest_pts = self.get_lidar_scan(closest_flag=True)
         obs = np.concatenate((sp_pose_ee, mb_vel_w, link_pose_r.flatten(),
                               j_pos, j_vel, closest_pts))
         return obs
