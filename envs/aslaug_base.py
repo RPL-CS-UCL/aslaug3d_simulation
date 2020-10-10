@@ -744,7 +744,7 @@ class AslaugBaseEnv(gym.Env):
                 l0_1 = hits_rel[lines_including[0][1]]
                 line_feats = np.concatenate([l0_0,l0_1,l0_0,l0_1]).tolist()
             else:
-                print ("Weird LIDAR points detected, check.")
+                #print ("Weird LIDAR points detected, check.")
                 line_feats = np.array(2*2*2*[0.0]).tolist()
             feats += line_feats
            
@@ -784,7 +784,7 @@ class AslaugBaseEnv(gym.Env):
         '''
         if self.valid_buffer_scan:
             if closest_flag:
-                return self.last_feats
+                return self.last_scan, self.last_feats
             return self.last_scan
         
         scan_front = None
@@ -804,13 +804,13 @@ class AslaugBaseEnv(gym.Env):
         scan_front = scan[:len(scan_l1)]
         scan_rear = scan[len(scan_l1):]
         self.last_scan = [scan_front, scan_rear]
+        feats = self.get_closest_lines(scan, scan_l, scan_h, self.baseLinkId)
+        self.last_feats = feats
         self.valid_buffer_scan = True
 
         if closest_flag:
             # Return closest line features
-            feats = self.get_closest_lines(scan, scan_l, scan_h, self.baseLinkId)
-            self.last_feats = feats
-            return feats 
+            return [scan_front, scan_rear], feats 
 
         return [scan_front, scan_rear]
 
