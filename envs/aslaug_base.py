@@ -484,7 +484,7 @@ class AslaugBaseEnv(gym.Env):
 
     def closest_node(self, node, nodes):
         dist_2 = np.sum((nodes - node)**2, axis=1)
-        return np.argmin(dist_2)
+        return np.argmin(dist_2), np.min(dist_2)
 
 
     def getRelativePointToGlobalPoint(self, pt, linkId):
@@ -728,10 +728,13 @@ class AslaugBaseEnv(gym.Env):
             
         # Find closest to each corner
         feats = []
+        closest_distances = []
         for corner in corners:
-            closest_id = self.closest_node(
+            closest_id, closest_dist = self.closest_node(
                 np.array([[corner[0],corner[1]]]), 
                 hits_rel)
+            closest_distances.append(closest_dist)
+
             lines_including = [line for line in lines if (closest_id >= line[0] and closest_id <= line[1])]
             if len(lines_including) >= 2:
                 l0_0 = hits_rel[lines_including[0][0]]
@@ -769,7 +772,7 @@ class AslaugBaseEnv(gym.Env):
         plt.show()
         """
             
-        return feats
+        return feats, closest_distances
 
     def get_lidar_scan(self, closest_flag = False):
         '''
@@ -781,7 +784,7 @@ class AslaugBaseEnv(gym.Env):
         '''
         if self.valid_buffer_scan:
             if closest_flag:
-                return self.last_scan, self.last_feats
+                return self.last_scan, self.last_feats, self.last_ldists
             return self.last_scan
         
         scan_front = None
@@ -803,15 +806,16 @@ class AslaugBaseEnv(gym.Env):
         self.last_scan = [scan_front, scan_rear]
         self.valid_buffer_scan = True
         
+        feats1, l1_dists = self.get_closest_lines(scan_front, scan_l1, scan_h1, self.lidarLinkId1, d_thresh=0)#.001)
+        feats2, l2_dists = self.get_closest_lines(scan_rear, scan_l2, scan_h2, self.lidarLinkId2, d_thresh=0)#.001)
+        feats = feats1 + feats2
+        l_dists = l1_dists + l2_dists
+        self.last_feats = feats
+        self.last_ldists = l_dists
         if closest_flag:
-            feats1 = self.get_closest_lines(scan_front, scan_l1, scan_h1, self.lidarLinkId1, d_thresh=0)#.001)
-            feats2 = self.get_closest_lines(scan_rear, scan_l2, scan_h2, self.lidarLinkId2, d_thresh=0)#.001)
-            feats = feats1 + feats2
-            self.last_feats = feats
-            
-        if closest_flag:
+
             # Return closest line features
-            return [scan_front, scan_rear], feats 
+            return [scan_front, scan_rear], feats, l_dists
 
         return [scan_front, scan_rear]
 

@@ -235,7 +235,8 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
         mb_vel_w[2:3] *= self.np_random.normal(1, std_ang, size=1)
 
         # Observation: Lidar
-        _, closest_pts = self.get_lidar_scan(closest_flag=True)
+        _, closest_pts, lidar_dists = self.get_lidar_scan(closest_flag=True)
+        #print (lidar_dists)
         obs = np.concatenate((sp_pose_ee, mb_vel_w, link_pose_r.flatten(),
                               j_pos, j_vel, closest_pts))
         return obs
