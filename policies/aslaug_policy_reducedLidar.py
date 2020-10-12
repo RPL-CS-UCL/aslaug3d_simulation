@@ -33,10 +33,13 @@ class AslaugPolicy(ActorCriticPolicy):
             in_jp = self.crop(1, o[3], o[4])(proc_obs)
             in_jv = self.crop(1, o[4], o[5])(proc_obs)
             in_cp = self.crop(1, o[5], o[6])(proc_obs)
+            in_cp_d = self.crop(1, o[6], o[7])(proc_obs)
+            in_cp_d_chg = self.crop(1, o[7], o[8])(proc_obs)
             
         with tf.variable_scope("model/scan_block", reuse=reuse):
 
-            sc_1 = tf.layers.Dense(16, activation=lrelu, name="sc_1")(in_cp)
+            sc_0 = tf.keras.layers.Concatenate(name="c_0")([in_cp, in_cp_d, in_cp_d_chg])
+            sc_1 = tf.layers.Dense(16, activation=lrelu, name="sc_1")(sc_0)
             sc_2 = tf.layers.Dense(8, activation=lrelu, name="sc_2")(sc_1)
             sc_out = tf.layers.Dense(8, activation=lrelu, name="sc_out")(sc_2)
 
