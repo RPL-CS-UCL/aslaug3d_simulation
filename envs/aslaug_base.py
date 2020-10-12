@@ -39,6 +39,7 @@ class AslaugBaseEnv(gym.Env):
                               / self.p["world"]["tau"])
         self.step_no = 0
         self.valid_buffer_scan = False
+        self.valid_line_buffer_scan = False
 
         # Set up simulation
         self.setup_simulation(gui=gui, easy_bookcases=easy_bookcases)
@@ -133,6 +134,7 @@ class AslaugBaseEnv(gym.Env):
         # Execute one step in simulation
         pb.stepSimulation(self.clientId)
         self.valid_buffer_scan = False
+        self.valid_line_buffer_scan = False
 
         # Update internal state
         self.state = {"base_vel": mb_vel_n_r, "joint_vel": joint_vel_n}
@@ -774,7 +776,52 @@ class AslaugBaseEnv(gym.Env):
             
         return feats, closest_distances
 
-    def get_lidar_scan(self, closest_flag = False):
+
+    def get_line_features(self):
+        '''
+        Obtain lidar scan values for current state.
+
+        Returns:
+            list: Scan values for range and resolution specified in
+                params dict.
+        '''
+        scan, extra = self.get_lidar_scan(extra_outputs = True)
+        
+        scan_len_ld1 = extra[2]
+        scan_front = scan[0]
+        scan_rear = scan[1]
+        scan_l1 = extra[0][:scan_len_ld1]
+        scan_l2 = extra[0][scan_len_ld1:]
+        scan_h1 = extra[1][:scan_len_ld1]
+        scan_h2 = extra[1][scan_len_ld1:]
+
+        feats1, l1_dists = self.get_closest_lines(scan_front, scan_l1, scan_h1, self.lidarLinkId1, d_thresh=0)#.001)
+        feats2, l2_dists = self.get_closest_lines(scan_rear, scan_l2, scan_h2, self.lidarLinkId2, d_thresh=0)#.001)
+        
+        feats = feats1 + feats2
+        l_dists = l1_dists + l2_dists
+
+        # First step
+        n_lids = 2
+        n_points = 7
+        if self.step_no == 0:
+            l_dist_grad_change = n_lids*n_points* [0.0]
+        else:
+            l_dist_grad_change = [(l_dists[i]-self.last_ldists[i])/self.last_ldists[i] for i in range (len (l_dists))]
+        #print (l_dist_grad_change)
+        
+        self.last_feats = feats
+        self.last_ldists = l_dists
+
+        self.last_scan = [scan_front, scan_rear]
+        """
+        feats = 2*8*7*[0]
+        l_dists = 2*7*[0]
+        l_dist_grad_change = 2*7*[0]
+        """
+        return [scan_front, scan_rear], feats, l_dists, l_dist_grad_change
+
+    def get_lidar_scan(self, extra_outputs = False):
         '''
         Obtain lidar scan values for current state.
 
@@ -783,8 +830,8 @@ class AslaugBaseEnv(gym.Env):
                 params dict.
         '''
         if self.valid_buffer_scan:
-            if closest_flag:
-                return self.last_scan, self.last_feats, self.last_ldists
+            if extra_outputs:
+                return self.last_scan, self.last_extra_scan_output
             return self.last_scan
         
         scan_front = None
@@ -803,19 +850,12 @@ class AslaugBaseEnv(gym.Env):
         scan = [x[2]*self.p["sensors"]["lidar"]["range"] for x in scan_r]
         scan_front = scan[:len(scan_l1)]
         scan_rear = scan[len(scan_l1):]
+        extra_scan_output = [scan_l, scan_h, len(scan_l1)]
         self.last_scan = [scan_front, scan_rear]
+        self.last_extra_scan_output = extra_scan_output
         self.valid_buffer_scan = True
-        
-        feats1, l1_dists = self.get_closest_lines(scan_front, scan_l1, scan_h1, self.lidarLinkId1, d_thresh=0)#.001)
-        feats2, l2_dists = self.get_closest_lines(scan_rear, scan_l2, scan_h2, self.lidarLinkId2, d_thresh=0)#.001)
-        feats = feats1 + feats2
-        l_dists = l1_dists + l2_dists
-        self.last_feats = feats
-        self.last_ldists = l_dists
-        if closest_flag:
-
-            # Return closest line features
-            return [scan_front, scan_rear], feats, l_dists
+        if extra_outputs:
+            return [scan_front, scan_rear], extra_scan_output
 
         return [scan_front, scan_rear]
 
@@ -898,6 +938,7 @@ class AslaugBaseEnv(gym.Env):
                                            self.clientId)
         pb.stepSimulation(self.clientId)
         self.valid_buffer_scan = False
+        self.valid_line_buffer_scan = False
 
     def get_camera_pose(self):
         state_mb = pb.getLinkState(self.robotId, self.baseLinkId,

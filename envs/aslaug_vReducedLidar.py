@@ -97,16 +97,21 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
         high_closest_pt = np.array(2 * n_closest_points * [rng])
         low_closest_pt = np.array(2 * n_closest_points * [0])
 
+        high_cpt_dist = np.array(n_lidars * n_corners * [rng])
+        high_cpt_dist_change = np.array(n_lidars * n_corners * [rng])
+        low_cpt_dist = np.array(n_lidars * n_corners * [0.0])
+        low_cpt_dist_change = np.array(n_lidars * n_corners * [0.0])
+
         high_o = np.concatenate((high_sp, high_mb, high_lp, high_j_p,
-                                 high_j_v, high_closest_pt))
+                                 high_j_v, high_closest_pt, high_cpt_dist, high_cpt_dist_change))
         low_o = np.concatenate((low_sp, low_mb, low_lp, low_j_p,
-                                low_j_v, low_closest_pt))
+                                low_j_v, low_closest_pt, low_cpt_dist, low_cpt_dist_change))
 
         self.observation_space = spaces.Box(low_o, high_o)
 
         # Store slicing points in observation
         self.obs_slicing = [0]
-        for e in (high_sp, high_mb, high_lp, high_j_p, high_j_v, high_closest_pt):
+        for e in (high_sp, high_mb, high_lp, high_j_p, high_j_v, high_closest_pt, high_cpt_dist, high_cpt_dist_change):
             self.obs_slicing.append(self.obs_slicing[-1] + e.shape[0])
 
     def calculate_reward(self):
@@ -235,10 +240,10 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
         mb_vel_w[2:3] *= self.np_random.normal(1, std_ang, size=1)
 
         # Observation: Lidar
-        _, closest_pts, lidar_dists = self.get_lidar_scan(closest_flag=True)
+        _, closest_pts, lidar_dists, lidar_dists_change = self.get_line_features()
         #print (lidar_dists)
         obs = np.concatenate((sp_pose_ee, mb_vel_w, link_pose_r.flatten(),
-                              j_pos, j_vel, closest_pts))
+                              j_pos, j_vel, closest_pts, lidar_dists, lidar_dists_change))
         return obs
 
     def get_success_rate(self):
