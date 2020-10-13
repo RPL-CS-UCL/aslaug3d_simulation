@@ -492,16 +492,13 @@ class AslaugBaseEnv(gym.Env):
     def getRelativePointToGlobalPoint(self, pt, linkId):
         T_w_link = self.homography(linkId)
         # pt.T = ( 3 x N )
-        pt_bar = self.homography_vector(np.array(pt)[np.newaxis].T)
+        pt_bar = self.homography_vector(np.array(pt).T)
         # pt_bar = ( 4 x N )        
         pt_world_frame = T_w_link.dot(pt_bar)
-        pt_world_frame_T = pt_world_frame[:3].T[0]
+        pt_world_frame_T = pt_world_frame[:3].T
         return pt_world_frame_T
 
     def getGlobalPointToRelativePoint(self, pt, linkId):
-        if len(pt) <= 2:
-            pt = 2* [rpos.tolist()]
-
         pt = np.array(pt)
         T_w_link = self.homography(linkId)
         # pt.T = ( 3 x N )
@@ -533,18 +530,6 @@ class AslaugBaseEnv(gym.Env):
             
             joint_pt = p_j_base_frame.T[0][:3]     
 
-            #pb.addUserDebugLine(
-            #        self.getRelativePointToGlobalPoint(joint_pt.tolist(), self.baseLinkId),
-            #        self.getRelativePointToGlobalPoint((joint_pt+np.array([1,0,0])).tolist(), self.baseLinkId),
-            #        [1,0,0],lifeTime=1)
-            #pb.addUserDebugLine(
-            #        self.getRelativePointToGlobalPoint(joint_pt.tolist(), self.baseLinkId),
-            #        self.getRelativePointToGlobalPoint((joint_pt+np.array([0,1,0])).tolist(), self.baseLinkId),
-            #        [0,1,0],lifeTime=1)
-            #pb.addUserDebugLine(
-            #        self.getRelativePointToGlobalPoint(joint_pt.tolist(), self.baseLinkId),
-            #        self.getRelativePointToGlobalPoint((joint_pt+np.array([0,0,1])).tolist(), self.baseLinkId),
-            #        [0,0,1],lifeTime=1)
             joint_pt = joint_pt[:2]
             joint_pts.append(joint_pt) 
 
@@ -556,6 +541,36 @@ class AslaugBaseEnv(gym.Env):
         p_ee_base_frame = np.linalg.inv(T_w_base).dot(p_ee_world_frame)
         p_ee_base_frame = p_ee_base_frame[:2,0]
         joint_pts.append(p_ee_base_frame) 
+        return joint_pts
+
+    def get_global_arm_points(self):
+        T_w_base = self.homography(self.baseLinkId)
+        # The move-able joint points
+        joint_indices = [self.joint_mapping[i] for i, j in enumerate(self.actuator_selection) if j!=0]
+        # TODO: Plus the end-effector point
+        joint_pts = []
+
+        for idx in joint_indices:
+            joint_info = pb.getJointInfo(self.robotId,
+                                        idx,
+                                        self.clientId)
+            joint_pt_in_parent_frame = np.array(joint_info[14])[np.newaxis].T
+            parent_link_Id = joint_info[16]
+            
+            p_j_link_frame = self.homography_vector(joint_pt_in_parent_frame) 
+            T_w_link = self.homography(parent_link_Id)
+            
+            p_j_world_frame = T_w_link.dot(p_j_link_frame)
+
+            joint_pt = p_j_world_frame.T[0][:3].tolist()
+            joint_pts.append(joint_pt) 
+
+
+        ee_state = pb.getLinkState(
+                                self.robotId, self.eeLinkId,
+                                False, False, self.clientId)
+        p_ee_world_frame = ee_state[0]
+        joint_pts.append(p_ee_world_frame) 
         return joint_pts
 
     def get_random_point(self, data,N):
@@ -618,9 +633,9 @@ class AslaugBaseEnv(gym.Env):
             pt1 = data[line[1]]
             pb.addUserDebugLine(
                 self.getRelativePointToGlobalPoint(
-                    [pt0[0],pt0[1], 0.05], self.baseLinkId),
+                    [[pt0[0],pt0[1], 0.05]], self.baseLinkId),
                 self.getRelativePointToGlobalPoint(
-                    [pt1[0],pt1[1], 0.05], self.baseLinkId),
+                    [[pt1[0],pt1[1], 0.05]], self.baseLinkId),
                     [1,0,0],lifeTime=1)
         return
 
@@ -652,11 +667,11 @@ class AslaugBaseEnv(gym.Env):
                 new_lines_list.append(line)
         return new_lines_list
 
-    def get_segmented_lines_map(self, hits_rel, d_thresh=0.05):
+    def get_segmented_lines_map(self, hits_rel, d_thresh=0.05, filter_thresh=2):
         # Assumes data input is already sorted
         data = np.array(hits_rel)
         lines = self.segment_scan(data, d_thresh)
-        lines = self.filter_line_segments(lines)
+        lines = self.filter_line_segments(lines, filter_thresh)
         return lines
 
     def get_lidar_rays(self, lidarLinkId):
@@ -677,13 +692,10 @@ class AslaugBaseEnv(gym.Env):
 
         # Scan hit 
         scan_range = self.p["sensors"]["lidar"]["range"]
-        hits = []
-        for i, scan_i in enumerate(scan):
-            #if scan_i > filter_thresh * scan_range:
-            #    continue
-            hit_global = scan_i * (scan_h[i] - scan_l[i])/scan_range + scan_l[i]
-            hits.append(hit_global)
-        return hits
+        scan = np.array(scan)
+        ds = (np.array(scan_h) - np.array(scan_l))/scan_range
+        hits = ds * scan.reshape(scan.shape[0], 1) + np.array(scan_l)
+        return hits.tolist()
 
 
 
@@ -777,6 +789,94 @@ class AslaugBaseEnv(gym.Env):
         return feats, closest_distances
 
 
+    def get_closest_lines_GLOBAL(self, hits, corners, d_thresh=0.05):
+     
+        # Segment LIDAR map into lines
+        lines = self.get_segmented_lines_map(hits, d_thresh=d_thresh)
+
+              
+        hits = np.array(hits)[:,:2]
+        
+        vis = False
+        if vis:       
+            fig, (ax1, ax2) = plt.subplots(1,2,figsize=(9,5))
+            ax1.set_xlim([-7,7])
+            ax1.set_ylim([-7,7])
+            ax2.set_xlim([-7,7])
+            ax2.set_ylim([-7,7])
+            rpos = self.getRelativePointToGlobalPoint([[0,0,0]], self.baseLinkId)
+            rx = rpos[0][0]
+            ry = rpos[0][1]
+            ax1.scatter(x=0, y=0, label="Robot", c="red", s=3, marker='x')
+            ax1.scatter(x = hits[:,0]-rx, y = hits[:,1]-ry, c="yellowgreen", s=3, marker='.')
+            ax2.scatter(x=0, y=0, label="Robot", c="red", s=3, marker='x')
+            ax2.scatter(x = hits[:,0]-rx, y = hits[:,1]-ry, c="yellowgreen", s=3, marker='.')
+
+            
+        # Find closest to each corner
+        feats = []
+        closest_distances = []
+        for corner in corners:
+            closest_id, closest_dist = self.closest_node(
+                np.array([[corner[0],corner[1]]]), 
+                hits)
+            closest_distances.append(closest_dist)
+
+            lines_including = [line for line in lines if (closest_id >= line[0] and closest_id <= line[1])]
+            if len(lines_including) >= 2:
+                l0_0 = hits[lines_including[0][0]]
+                l0_1 = hits[lines_including[0][1]]
+                l1_0 = hits[lines_including[1][0]]
+                l1_1 = hits[lines_including[1][1]]
+                global_line_pts = [[l0_0[0], l0_0[1], 0.0],
+                                 [l0_1[0], l0_1[1], 0.0],
+                                 [l1_0[0], l1_0[1], 0.0],
+                                 [l1_1[0], l1_1[1], 0.0]]
+                line_feats = self.getGlobalPointToRelativePoint(global_line_pts, self.baseLinkId).tolist()
+                line_feats = sum(line_feats, [])
+            elif len(lines_including) == 1:
+                l0_0 = hits[lines_including[0][0]]
+                l0_1 = hits[lines_including[0][1]]
+                global_line_pts = [[l0_0[0], l0_0[1], 0.0],
+                                 [l0_1[0], l0_1[1], 0.0],
+                                 [l0_0[0], l0_0[1], 0.0],
+                                 [l0_1[0], l0_1[1], 0.0]]
+                line_feats = self.getGlobalPointToRelativePoint(global_line_pts, self.baseLinkId).tolist()
+                line_feats = sum(line_feats, [])
+            else:
+                #print ("Weird LIDAR points detected, check.")
+                global_line_pts =  4*[3*[0.0]]
+                line_feats = np.array(2*2*2*[0.0]).tolist()
+
+
+            feats += line_feats
+
+            if vis:
+                ax2.scatter(x=hits[closest_id][0]-rx,
+                            y=hits[closest_id][1]-ry, 
+                            c="r", s=2, marker=".")
+                ax2.plot([global_line_pts[0][0]-rx, 
+                          global_line_pts[1][0]-rx],
+                         [global_line_pts[0][1]-ry, 
+                          global_line_pts[1][1]-ry], 
+                         c="r")
+                ax2.plot([global_line_pts[2][0]-rx, 
+                          global_line_pts[3][0]-rx],
+                         [global_line_pts[2][1]-ry, 
+                          global_line_pts[3][1]-ry], 
+                         c="r")
+        if vis:
+            hits[:,0]-= rx
+            hits[:,1]-= ry
+            self.vis_lines(hits, lines, axis=ax1)
+            ax1.grid()
+            ax2.grid()
+            plt.show()
+        
+            
+        return feats, closest_distances
+
+
     def get_line_features(self):
         '''
         Obtain lidar scan values for current state.
@@ -795,10 +895,30 @@ class AslaugBaseEnv(gym.Env):
         scan_h1 = extra[1][:scan_len_ld1]
         scan_h2 = extra[1][scan_len_ld1:]
 
-        feats1, l1_dists = self.get_closest_lines(scan_front, scan_l1, scan_h1, self.lidarLinkId1, d_thresh=0)#.001)
-        feats2, l2_dists = self.get_closest_lines(scan_rear, scan_l2, scan_h2, self.lidarLinkId2, d_thresh=0)#.001)
+        # Define corners
+        # TODO: Move to config file.
+        d_body_to_front = 0.16
+        d_body_to_back  =-0.7
+        d_body_to_left  = 0.33
+        d_body_to_right =-0.33
+        corners = []
+        corners.append([d_body_to_front, d_body_to_left, 0.002])
+        corners.append([d_body_to_front, d_body_to_right, 0.002])
+        corners.append([d_body_to_back, d_body_to_left, 0.002])
+        corners.append([d_body_to_back, d_body_to_right, 0.002]) 
+
+        corners = self.getRelativePointToGlobalPoint(corners, self.baseLinkId).tolist()
+        pts = self.get_global_arm_points()
+        corners += pts
+
+        hits = self.get_global_hits(scan[0]+scan[1], extra[0], extra[1])
+
+        feats1, l1_dists = self.get_closest_lines_GLOBAL(hits[:scan_len_ld1], corners, d_thresh=0.05)
+        feats2, l2_dists = self.get_closest_lines_GLOBAL(hits[scan_len_ld1:], corners, d_thresh=0.05)
         
-        feats = feats1 + feats2
+        #feats1, l1_dists = self.get_closest_lines(scan_front, scan_l1, scan_h1, self.lidarLinkId1, d_thresh=0)#.001)
+        #feats2, l2_dists = self.get_closest_lines(scan_rear, scan_l2, scan_h2, self.lidarLinkId2, d_thresh=0)#.001)
+
         l_dists = l1_dists + l2_dists
 
         # First step
