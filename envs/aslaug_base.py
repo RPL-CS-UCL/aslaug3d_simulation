@@ -573,47 +573,6 @@ class AslaugBaseEnv(gym.Env):
         joint_pts.append(p_ee_world_frame) 
         return joint_pts
 
-    def get_random_point(self, data,N):
-        idx = np.random.randint(0,N-1)
-        pt = [data[idx,0], data[idx,1]]
-        return pt
-
-    def dist(self, pt0,pt1):
-        return np.sqrt( (pt0[0]-pt1[0])**2 + (pt0[1]-pt1[1])**2 )
-
-    def get_dist_from_line(self, pt, line_pt0, line_pt1):
-        a = pt
-        b = line_pt0
-        c = line_pt1
-        S = (1/2)* abs( a[0]*(b[1]-c[1]) + b[0]*(c[1]-a[1]) + c[0]*(a[1]-b[1]) )
-        h = S/self.dist(b,c)
-        return h
-
-    def find_farthest_point(self, data, line):
-        pt_A = data[line[0]]
-        pt_B = data[line[1]]
-        d_max = 0
-        idx_max = None
-        found = False
-        for i,point in enumerate(data):
-            if i <= line[0] or i >= line[1]:
-                continue
-            d = self.get_dist_from_line(point, pt_A, pt_B)
-            if d >= d_max:
-                d_max = d
-                idx_max = i
-                found = True
-        return idx_max, d_max, found
-
-    def segment_line(self, data, line, d_thresh):
-        j, d_j, found = self.find_farthest_point(data, line)
-        if found and (d_j > d_thresh):
-            success = True
-            return [[line[0], j], [j,line[1]]], success
-        else:
-            success = False
-            return [line], success
-
     def vis_lines(self, data, lines, axis=None):
         for line in lines:
             if axis == None:
@@ -639,6 +598,47 @@ class AslaugBaseEnv(gym.Env):
                     [1,0,0],lifeTime=1)
         return
 
+    def get_random_point(self, data,N):
+        idx = np.random.randint(0,N-1)
+        pt = [data[idx,0], data[idx,1]]
+        return pt
+
+    def dist(self, pt0,pt1):
+        return np.sqrt( (pt0[0]-pt1[0])**2 + (pt0[1]-pt1[1])**2 )
+
+    def get_dist_from_line(self, pt, line_pt0, line_pt1):
+        a = pt
+        b = line_pt0
+        c = line_pt1
+        S = (1/2)* abs( a[0]*(b[1]-c[1]) + b[0]*(c[1]-a[1]) + c[0]*(a[1]-b[1]) )
+        h = S/self.dist(b,c)
+        return h
+
+    def find_farthest_point(self, data, line):
+        pt_A = data[0]
+        pt_B = data[line[1]-line[0]]
+        d_max = 0
+        idx_max = None
+        found = False
+        for i,point in enumerate(data):
+            if i <= line[0] or i >= line[1]:
+                continue
+            d = self.get_dist_from_line(point, pt_A, pt_B)
+            if d >= d_max:
+                d_max = d
+                idx_max = i + line[0]
+                found = True
+        return idx_max, d_max, found
+
+    def segment_line(self, data, line, d_thresh):
+        j, d_j, found = self.find_farthest_point(data[line[0]:line[1]+1, :], line)
+        if found and (d_j > d_thresh):
+            success = True
+            return [[line[0], j], [j,line[1]]], success
+        else:
+            success = False
+            return [line], success
+
     def segment_scan(self,data, d_thresh):
         N = data.shape[0]
         lines = [[0,N-1]]
@@ -660,6 +660,29 @@ class AslaugBaseEnv(gym.Env):
                 break
         return lines
 
+    def segment_scan_NEW(self, data, d_thresh):
+        N = data.shape[0]
+        lines = [[0,N-1]]
+
+        new_lines= self.segment_scan_NEW_recursion(data, lines[0], d_thresh)
+
+        return new_lines
+
+
+    def segment_scan_NEW_recursion(self, data, line, d_thresh):
+        # Splits line in 2
+        new_lines, success = self.segment_line(data, line, d_thresh)
+        if not success:
+            # If unsuccessful, return fully segmented line
+            return new_lines
+        else:
+            # Else, continue segmentation
+            all_lines = []
+            for new_line in new_lines:
+                new_line_segments = self.segment_scan_NEW_recursion(data, new_line, d_thresh)
+                all_lines += new_line_segments
+            return all_lines
+
     def filter_line_segments(self, lines, filter_thresh=2):
         new_lines_list = []
         for line in lines:
@@ -670,7 +693,12 @@ class AslaugBaseEnv(gym.Env):
     def get_segmented_lines_map(self, hits_rel, d_thresh=0.05, filter_thresh=2):
         # Assumes data input is already sorted
         data = np.array(hits_rel)
+        #t0 = time.time()
+        #lines = self.segment_scan_NEW(data, d_thresh)
+        #print ("S1",time.time()-t0)
+        #t0 = time.time()
         lines = self.segment_scan(data, d_thresh)
+        #print ("S2",time.time()-t0)
         lines = self.filter_line_segments(lines, filter_thresh)
         return lines
 
@@ -792,7 +820,10 @@ class AslaugBaseEnv(gym.Env):
     def get_closest_lines_GLOBAL(self, hits, corners, d_thresh=0.05):
      
         # Segment LIDAR map into lines
+        t0 = time.time()
         lines = self.get_segmented_lines_map(hits, d_thresh=d_thresh)
+        #print ("Get lines", time.time()-t0)
+        t0 = time.time()
 
               
         hits = np.array(hits)[:,:2]
@@ -872,6 +903,7 @@ class AslaugBaseEnv(gym.Env):
             ax1.grid()
             ax2.grid()
             plt.show()
+        #print ("Get lines2", time.time()-t0)
         
             
         return feats, closest_distances
@@ -885,8 +917,11 @@ class AslaugBaseEnv(gym.Env):
             list: Scan values for range and resolution specified in
                 params dict.
         '''
+        #t0 = time.time()
         scan, extra = self.get_lidar_scan(extra_outputs = True)
         
+        #print ("Scan", time.time()-t0)
+
         scan_len_ld1 = extra[2]
         scan_front = scan[0]
         scan_rear = scan[1]
@@ -915,7 +950,8 @@ class AslaugBaseEnv(gym.Env):
 
         feats1, l1_dists = self.get_closest_lines_GLOBAL(hits[:scan_len_ld1], corners, d_thresh=0.05)
         feats2, l2_dists = self.get_closest_lines_GLOBAL(hits[scan_len_ld1:], corners, d_thresh=0.05)
-        
+        feats = feats1 + feats2
+
         #feats1, l1_dists = self.get_closest_lines(scan_front, scan_l1, scan_h1, self.lidarLinkId1, d_thresh=0)#.001)
         #feats2, l2_dists = self.get_closest_lines(scan_rear, scan_l2, scan_h2, self.lidarLinkId2, d_thresh=0)#.001)
 
