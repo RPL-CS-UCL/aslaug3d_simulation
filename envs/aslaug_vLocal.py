@@ -4,6 +4,7 @@ import pybullet as pb
 import random
 from . import aslaug_base
 import cv2
+import matplotlib.pyplot as plt
 from scipy.signal import convolve2d
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -306,11 +307,16 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
                 n_tries = 0
             cl = self.corridor_length
 
-            x_min = np.max((0.0, sp_pos[0] - self.p["world"]["spawn_range_x"]))
-            x_max = np.min((cl, sp_pos[0] + self.p["world"]["spawn_range_x"]))
+            #x_min = np.max((0.0, sp_pos[0] - self.p["world"]["spawn_range_x"]))
+            #x_max = np.min((cl, sp_pos[0] + self.p["world"]["spawn_range_x"]))
+            x_min = 4.4
+            x_max = 5.2
             x_coord = self.np_random.uniform(x_min, x_max)
+            y_min = 2.6
+            y_max = 3.4
+            y_coord = self.np_random.uniform(y_min, y_max)
 
-            robot_pos = (x_coord, self.corridor_width/2, 0.08)
+            robot_pos = (x_coord, y_coord, 0.08)
             robot_init_yaw = self.np_random.uniform(-np.pi, np.pi)
             robot_ori = pb.getQuaternionFromEuler([0, 0,
                                                    robot_init_yaw])
@@ -496,14 +502,14 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
 
         sg = SpawnGrid(corr_l*2, corr_w, res=0.01, min_dis=self.p["world"]["min_clearance"])
         sg.add_shelf(4+1.47/2, 1.47, 0.39, 0)
-        sg.add_shelf(12+1.47/2, 1.47, 0.39, 0)
+        #sg.add_shelf(12+1.47/2, 1.47, 0.39, 0)
         self.occmap.add_rect([4+1.47/2, 0.39/2], 1.47, 0.39)
-        self.occmap.add_rect([12+1.47/2, 0.39/2], 1.47, 0.39)
+        #self.occmap.add_rect([12+1.47/2, 0.39/2], 1.47, 0.39)
 
         # Spawn shelves, row 1
-        pos = np.array([4.2,0.5,0.0])
+        pos = np.array([4.2,0.45,0.0])
 
-        halfExtents = [0.4, 0.4, 1.5]
+        halfExtents = [0.4, 0.5, 1.5]
         colBoxId = pb.createCollisionShape(pb.GEOM_BOX,
                                            halfExtents=halfExtents)
         visBoxId = pb.createCollisionShape(pb.GEOM_BOX,
@@ -521,8 +527,8 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
 
 
 
-        pos = np.array([5.5,0.4,0.0])
-        halfExtents = [0.4, 0.45, 1.5]
+        pos = np.array([5.5,0.15,0.0])
+        halfExtents = [0.4, 0.7, 1.5]
         colBoxId = pb.createCollisionShape(pb.GEOM_BOX,
                                            halfExtents=halfExtents)
         visBoxId = pb.createCollisionShape(pb.GEOM_BOX,
@@ -682,7 +688,7 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
         pos = [ee_pos_w[0], ee_pos_w[1]]
         self.path, path_idx = self.occmap.generate_path(pos, n_its=25000)
         self.path = np.array(self.path)
-        # self.occmap.visualize_path(path_idx)
+        #self.occmap.visualize_path(path_idx)
         dis_to_p, rem_dis = self.get_path_stats()
         self.last_dis_to_path = dis_to_p
         self.total_path_length = rem_dis
@@ -965,9 +971,10 @@ class OccupancyMap:
                              interpolation=cv2.INTER_NEAREST)
         img_viz = np.flip(img_viz.T, axis=0)
         img_viz = cv2.cvtColor(img_viz, cv2.COLOR_BGR2RGB)
-        print(img_viz)
-        cv2.imshow("Occupancy map", img_viz)
-        cv2.waitKey()
+        plt.imshow(img_viz)
+        plt.show()
+        #cv2.imshow("Occupancy map", img_viz)
+        #cv2.waitKey()
 
     def reset(self):
         n_x = int(round(self.res*(self.x_u-self.x_l)))+2
