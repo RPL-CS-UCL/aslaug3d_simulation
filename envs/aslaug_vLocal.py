@@ -119,6 +119,7 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
             done = True
 
         # Reward: Safety margin
+        """
         scan_ret = self.get_lidar_scan()
         scan_cal = np.concatenate([x for x in self.scan_calib if x is not None])
         scan = np.concatenate([x for x in scan_ret if x is not None])
@@ -134,6 +135,7 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
                    * self.p["reward"]["fac_base_sp_ang"]
                    / np.pi)
         self.last_r_ang_sp = r_ang_sp
+        """
 
         # Reward: Timeout
         reward += self.p["reward"]["rew_timeout"] / self.timeout_steps
@@ -309,15 +311,15 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
 
             #x_min = np.max((0.0, sp_pos[0] - self.p["world"]["spawn_range_x"]))
             #x_max = np.min((cl, sp_pos[0] + self.p["world"]["spawn_range_x"]))
-            x_min = 4.4
-            x_max = 5.2
+            x_min = 4.9
+            x_max = 5.1
             x_coord = self.np_random.uniform(x_min, x_max)
-            y_min = 2.6
-            y_max = 3.4
+            y_min = 3.1
+            y_max = 3.2
             y_coord = self.np_random.uniform(y_min, y_max)
 
             robot_pos = (x_coord, y_coord, 0.08)
-            robot_init_yaw = self.np_random.uniform(-np.pi, np.pi)
+            robot_init_yaw = self.np_random.uniform( -np.pi/4, -3*np.pi/4)#-np.pi, np.pi)
             robot_ori = pb.getQuaternionFromEuler([0, 0,
                                                    robot_init_yaw])
             pb.resetBasePositionAndOrientation(self.robotId, robot_pos,
