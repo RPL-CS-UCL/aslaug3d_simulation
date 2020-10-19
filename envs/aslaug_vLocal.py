@@ -319,7 +319,7 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
             y_coord = self.np_random.uniform(y_min, y_max)
 
             robot_pos = (x_coord, y_coord, 0.08)
-            robot_init_yaw = self.np_random.uniform( -np.pi/4, -3*np.pi/4)#-np.pi, np.pi)
+            robot_init_yaw = self.np_random.uniform( -(np.pi/18)-np.pi/2, (np.pi/18)-np.pi/2)#-np.pi, np.pi)
             robot_ori = pb.getQuaternionFromEuler([0, 0,
                                                    robot_init_yaw])
             pb.resetBasePositionAndOrientation(self.robotId, robot_pos,
