@@ -321,15 +321,15 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
 
             #x_min = np.max((0.0, sp_pos[0] - self.p["world"]["spawn_range_x"]))
             #x_max = np.min((cl, sp_pos[0] + self.p["world"]["spawn_range_x"]))
-            x_min = 4.9
-            x_max = 5.1
+            x_min = 4.9999
+            x_max = 5.0000
             x_coord = self.np_random.uniform(x_min, x_max)
-            y_min = 3.1
-            y_max = 3.2
+            y_min = 3.1499
+            y_max = 3.1500
             y_coord = self.np_random.uniform(y_min, y_max)
 
             robot_pos = (x_coord, y_coord, 0.08)
-            robot_init_yaw = self.np_random.uniform( -(np.pi/18)-np.pi/2, (np.pi/18)-np.pi/2)#-np.pi, np.pi)
+            robot_init_yaw = self.np_random.uniform( -(np.pi/180)-np.pi/2, (np.pi/180)-np.pi/2)#-np.pi, np.pi)
             robot_ori = pb.getQuaternionFromEuler([0, 0,
                                                    robot_init_yaw])
             pb.resetBasePositionAndOrientation(self.robotId, robot_pos,
@@ -519,7 +519,7 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
         #self.occmap.add_rect([12+1.47/2, 0.39/2], 1.47, 0.39)
 
         # Spawn shelves, row 1
-        pos = np.array([4.2,0.45,0.0])
+        pos = np.array([4.25,0.05,0.0])
 
         halfExtents = [0.4, 0.5, 1.5]
         colBoxId = pb.createCollisionShape(pb.GEOM_BOX,
@@ -539,8 +539,8 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
 
 
 
-        pos = np.array([5.5,0.15,0.0])
-        halfExtents = [0.4, 0.7, 1.5]
+        pos = np.array([5.4,0.05,0.0])
+        halfExtents = [0.4, 0.5, 1.5]
         colBoxId = pb.createCollisionShape(pb.GEOM_BOX,
                                            halfExtents=halfExtents)
         visBoxId = pb.createCollisionShape(pb.GEOM_BOX,
