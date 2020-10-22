@@ -18,9 +18,9 @@ learning_params:
 environment_params:
   # Base platform parameters
   base:
-    acc_mag: [0.15, 0.15, 0.3]  # Maximum accelerations [x, y, theta]
-    vel_mag_lin: 0.1  # Maximum linear velocity (x^2+y^2 <= vel_mag_lin^2)
-    vel_mag_ang: 0.2  # Maximum angular acceleration for theta
+    acc_mag: [0.3, 0.3, 0.6] # [0.15, 0.15, 0.3]  # Maximum accelerations [x, y, theta]
+    vel_mag_lin: 0.3 #0.1  # Maximum linear velocity (x^2+y^2 <= vel_mag_lin^2)
+    vel_mag_ang: 0.3 #0.2  # Maximum angular acceleration for theta
 
     # Base acceleration noise (gaussian)
     std_acc_lin: 0.001
@@ -28,8 +28,8 @@ environment_params:
 
   # Manipulator parameters
   joints:
-    vel_mag: 0.5  # Maximum velocity for each joint
-    acc_mag: 0.8  # Maximum acceleration for each joint
+    vel_mag: 0.3  # Maximum velocity for each joint
+    acc_mag: 0.6  # Maximum acceleration for each joint
     base_link_name: panda_link0  # Name of the base link
     ee_link_name: panda_ee  # Link name of the end effector
 
@@ -205,7 +205,7 @@ environment_params:
     tau: 0.04
 
     # Timeout after which the episode ends
-    timeout: 120
+    timeout: 50 #120
 
     # Parameters for dynamic obstacles spawned (humans)
     n_humans: 2  # Number of humans which might walk around

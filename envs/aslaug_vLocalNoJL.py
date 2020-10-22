@@ -323,10 +323,10 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
             #x_max = np.min((cl, sp_pos[0] + self.p["world"]["spawn_range_x"]))
             x_min = 4.9999
             x_max = 5.0000
-            x_coord = self.np_random.uniform(x_min, x_max)
+            x_coord = 5.0 # self.np_random.uniform(x_min, x_max)
             y_min = 3.1499
             y_max = 3.1500
-            y_coord = self.np_random.uniform(y_min, y_max)
+            y_coord = 3.15 # self.np_random.uniform(y_min, y_max)
 
             robot_pos = (x_coord, y_coord, 0.08)
             robot_init_yaw = self.np_random.uniform( -(np.pi/180)-np.pi/2, (np.pi/180)-np.pi/2)#-np.pi, np.pi)
@@ -339,6 +339,10 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
                 if self.actuator_selection[i]:
                     j = self.np_random.uniform(self.joint_limits[i, 0],
                                                self.joint_limits[i, 1])
+                    if i == 0:
+                        j = 3.141592
+                    if j == 3:
+                        j = 1.56
                     pb.resetJointState(self.robotId, self.joint_mapping[i],
                                        j, 0.0, self.clientId)
 

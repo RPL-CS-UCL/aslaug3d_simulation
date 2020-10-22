@@ -279,7 +279,7 @@ class AslaugTrainer:
         if avg >= self.env_params['adr']['success_threshold']:
             to_adapt = []
             if self.counter['ADR_lvl'] \
-                    < len(self.env_params['adr']['adaptions']):
+                    < len(self.env_params['adr']['adaptions'])-1:
                 adaptions = self.env_params['adr']['adaptions']
                 for adapts in adaptions[self.counter['ADR_lvl']]:
                     val = np.average(self.model.env.env_method(
@@ -302,7 +302,7 @@ class AslaugTrainer:
             else:
                 self.counter['ADR_lvl'] = min(
                     self.counter['ADR_lvl'] + 1,
-                    len(self.env_params['adr']['adaptions']))
+                    len(self.env_params['adr']['adaptions'])-1)
         if avg <= self.env_params['adr']['fail_threshold']:
             if self.counter['last_adaption'] is not None:
                 adaptions = self.env_params['adr']['adaptions']
