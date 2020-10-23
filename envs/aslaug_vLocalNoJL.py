@@ -340,7 +340,7 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
                     j = self.np_random.uniform(self.joint_limits[i, 0],
                                                self.joint_limits[i, 1])
                     if i == 0:
-                        j = 1.56
+                        j = -1.56
                     if j == 3:
                         j = 0.0
                     pb.resetJointState(self.robotId, self.joint_mapping[i],
