@@ -326,7 +326,7 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
             x_coord = 5.0 # self.np_random.uniform(x_min, x_max)
             y_min = 3.1499
             y_max = 3.1500
-            y_coord = 3.15 # self.np_random.uniform(y_min, y_max)
+            y_coord = 3.0 # self.np_random.uniform(y_min, y_max)
 
             robot_pos = (x_coord, y_coord, 0.08)
             robot_init_yaw = self.np_random.uniform( -(np.pi/180)-np.pi/2, (np.pi/180)-np.pi/2)#-np.pi, np.pi)
@@ -340,9 +340,9 @@ class AslaugEnv(aslaug_base.AslaugBaseEnv):
                     j = self.np_random.uniform(self.joint_limits[i, 0],
                                                self.joint_limits[i, 1])
                     if i == 0:
-                        j = 3.141592
-                    if j == 3:
                         j = 1.56
+                    if j == 3:
+                        j = 0.0
                     pb.resetJointState(self.robotId, self.joint_mapping[i],
                                        j, 0.0, self.clientId)
 
