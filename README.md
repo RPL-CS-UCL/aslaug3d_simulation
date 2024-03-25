@@ -1,4 +1,4 @@
-# Aslaug3D Simulation instructions
+# Aslaug3D Simulation instructions - Denis Hadjivelichkov MSc Project
 
 ## Installation
 Note that this repository uses python3.
